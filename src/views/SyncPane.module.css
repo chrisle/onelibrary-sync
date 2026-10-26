@@ -14,6 +14,8 @@
 .tableScroll { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; text-align: left; font-size: var(--f-size-sm); }
 .table th { color: var(--c-text-dim); font-weight: 400; }
+/* Column headings, as the panel's other headings: bold capitals. */
+.table thead th, .counts thead th, .counts .group th { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .table th, .table td { padding: 12px 8px; border-bottom: 1px solid var(--c-raised); vertical-align: middle; }
 .table tbody tr.row:hover { background: var(--c-raised); }
 .table tbody tr.row[data-expanded] { background: var(--c-raised); }
@@ -110,7 +112,7 @@
 .counts thead th { color: var(--c-text-dim); }
 .counts td { width: 32%; padding-left: 16px; overflow-wrap: anywhere; }
 .counts small { display: block; font-size: 11px; }
-.counts .group th { padding-top: 16px; color: var(--c-text-dim); font-weight: 600; }
+.counts .group th { padding-top: 16px; color: var(--c-text-dim); }
 /* A line a sync changes, in the colour the row's status uses. */
 .counts [data-changed] th, .counts [data-changed] td:last-child { color: var(--c-label-yellow); }
 .delta { margin-left: 6px; color: var(--c-text-dim); font-size: 11px; }
