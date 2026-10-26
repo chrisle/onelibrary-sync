@@ -1,0 +1,50 @@
+/* RBXport's Preferences controls, as its Backups pane draws them; the
+   values are its tokens (src/styles/tokens.css, copied from rbxport). */
+.section {
+  min-height: 100%;
+  padding: var(--s-pref-section-pad-top) var(--s-pref-section-pad-x) var(--s-pref-section-pad-bottom);
+  background: var(--c-panel);
+}
+.title {
+  margin: 0 0 16px;
+  font-size: var(--f-size-pref-title);
+  font-weight: 700;
+  line-height: 22px;
+}
+.button {
+  height: var(--s-pref-button-h);
+  padding: 0 14px;
+  border: 1px solid var(--c-pref-button-border);
+  border-radius: 2px;
+  background: linear-gradient(var(--c-pref-button-top), var(--c-pref-button-bottom));
+  color: var(--c-icon-on);
+  font: inherit;
+  cursor: default;
+}
+.button:hover:not(:disabled) { border-color: var(--c-accent); }
+.button:disabled { color: var(--c-device-disabled); }
+.checkbox {
+  appearance: none;
+  margin: 0;
+  flex: none;
+  position: relative;
+  width: var(--s-pref-checkbox);
+  height: var(--s-pref-checkbox);
+  box-sizing: border-box;
+  border: 1px solid var(--c-pref-control-off);
+  background: var(--c-panel);
+  cursor: default;
+}
+.checkbox:checked { border-color: var(--c-pref-select); background: var(--c-pref-select); }
+.checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--c-icon-on);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.checkbox:disabled { opacity: .4; }

@@ -1,0 +1,46 @@
+/* The pane fills the window as RBXport's Preferences pane fills its own:
+   a panel on black, scrolling as one. */
+.window {
+  height: 100%;
+  padding: var(--s-pref-section-gap);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-black);
+  color: var(--c-icon-on);
+  font-size: var(--f-size-pref-label);
+}
+.titleBar {
+  display: none;
+}
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-raised) var(--c-black);
+}
+
+/* macOS's native title cannot be positioned reliably. With the native frame
+   overlaid, this row keeps the traffic lights while centering the title on the
+   full window rather than in the space left over beside them. */
+:global(html[data-os="macos"]) .window {
+  padding-top: 0;
+}
+
+:global(html[data-os="macos"]) .titleBar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--s-title-bar-h);
+  margin-inline: calc(-1 * var(--s-pref-section-gap));
+  margin-bottom: var(--s-pref-section-gap);
+  background: var(--c-titlebar);
+  color: var(--c-titlebar-text);
+  font: 600 var(--f-size-window-title) / 1 var(--f-window-title);
+}
+
+:global(html[data-os="macos"]) .titleBar > span {
+  transform: translateY(7px);
+  pointer-events: none;
+}
