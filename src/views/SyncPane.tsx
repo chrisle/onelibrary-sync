@@ -5,7 +5,7 @@ import type { Backend, Device, Status, SyncProgress } from "@/ipc/types";
 import { Button, Section } from "@/components/controls";
 import { errorMessage } from "@/lib/errorMessage";
 import { formatBytes, formatCount, formatFileSystem } from "@/lib/format";
-import { anyChange, summarize } from "@/lib/changes";
+import { anyChange } from "@/lib/changes";
 import { useDevices, type PlanState } from "@/store/useDevices";
 import { useStatus } from "@/store/useStatus";
 import { useSyncJob } from "@/store/useSyncJob";
@@ -53,7 +53,6 @@ export function SyncPane() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [focus, setFocus] = useState("");
   const running = useRef(false);
   // Kept after a USB goes, so a sync's end can still name it.
   const names = useRef(new Map<string, string>());
@@ -77,10 +76,7 @@ export function SyncPane() {
   const sync = (device: Device) => {
     const plan = plans.get(device.path);
     if (plan?.state !== "ready") return;
-    void run("", async b => {
-      const lines = summarize(plan.plan).map(line => `• ${line}`).join("\n");
-      const ask = `Sync the Device Library on ${device.name}?\n\n${lines}\n\nThe OneLibrary is read and never changed.`;
-      if (!await b.confirm(ask, { yes: "Sync", no: "Cancel" })) return "";
+    void run("", async () => {
       await job.start(device.path, plan.plan.fingerprint);
       return "";
     });
@@ -134,14 +130,14 @@ export function SyncPane() {
             <td className={styles.state} data-state={state.state}>{state.text}</td>
             <td onClick={event => event.stopPropagation()}><div className={styles.actions}>
               <Button className={styles.backupButton} disabled={unavailable || blocked !== "" || !ready || !anyChange(ready.changes)}
-                onClick={() => { toggle(device.path, true); setFocus(device.path); sync(device); }}>Sync…</Button>
+                onClick={() => sync(device)}>Sync</Button>
               <Button className={`${styles.backupButton} ${styles.deleteButton}`} disabled={unavailable} onClick={() => void run(`Ejecting ${device.name}…`, async b => {
                 await b.ejectDevice(device.path); await reload(); return `${device.name} was ejected. It can be unplugged.`;
               })}>Eject</Button>
             </div></td>
           </tr>
           {open ? <tr className={styles.detailsRow}><td colSpan={6}>
-            <DeviceDetails device={device} plan={plan} blocked={blocked} focus={focus === device.path}
+            <DeviceDetails device={device} plan={plan} blocked={blocked}
               onSync={() => sync(device)}
               onRecheck={() => recheck(device.path)}
               onOpen={() => { setError(""); void getBackend().then(b => b.openDevice(device.path)).catch(e => setError(errorMessage(e))); }}

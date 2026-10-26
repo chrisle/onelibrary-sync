@@ -17,8 +17,8 @@ licensed GPL-2.0-or-later.
 - Opening a USB (the arrow) shows what its two libraries hold side by side:
   tracks, playlists, folders, artists, albums, genres, labels, keys, artwork
   and My Tags, with differences highlighted, and what a sync would change.
-- **Sync…** shows that summary for confirmation and syncs one way, from the
-  OneLibrary to the Device Library. The OneLibrary is only read.
+- **Sync** syncs one way, from the OneLibrary to the Device Library, without
+  asking again. The OneLibrary is only read.
 - **Eject** hands the USB back to the system so it can be unplugged.
 
 Only the USB is read and written. The rekordbox library on the computer is
@@ -45,13 +45,13 @@ libraries reads as in sync. The play history players record in the Device
 Library is the USB's own and is kept.
 
 Playlists, folders and tracks that only the Device Library has, such as a
-playlist saved on a player, are removed. The confirmation says so when that
+playlist saved on a player, are removed. The opened USB says so when that
 happens.
 
 ## Safety
 
 - Quit rekordbox before syncing; it writes to the USBs it sees.
-- The sync reads the USB again and compares it with what the confirmation
+- The sync reads the USB again and compares it with what the window
   showed. If the USB changed in between, or changes while the new files are
   being prepared, nothing is written.
 - Files are written through RBXport's publication journal and write lock on
@@ -81,9 +81,8 @@ cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
 ```
 
 In the browser, `?rekordbox=1` has rekordbox running, `?interrupted=1` leaves
-an interrupted write on the first USB, `?fail=1` fails syncs, `?decline=1`
-answers no to confirmations, `?empty=1` connects nothing and `?late=1`
-connects another USB after a few seconds.
+an interrupted write on the first USB, `?fail=1` fails syncs, `?empty=1`
+connects nothing and `?late=1` connects another USB after a few seconds.
 
 Tests on a real USB stick run by hand, never in CI. They rewrite the stick's
 libraries and put the files back after each test, pass or fail. Use a stick

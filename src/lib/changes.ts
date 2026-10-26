@@ -14,16 +14,6 @@ export const COUNT_ROWS = [
   { key: "myTags", label: "My Tags" },
 ] as const satisfies readonly { key: keyof Counts; label: string }[];
 
-/** The tables of export.pdb by the names people know them by. */
-export const TABLE_NAMES: Record<Table, string> = {
-  tracks: "tracks", genres: "genres", artists: "artists", albums: "albums", labels: "labels", keys: "keys",
-  colors: "colour names", playlists: "playlist tree", playlistEntries: "playlist contents", artwork: "artwork",
-  columns: "browse columns", categories: "browse categories", sorts: "sort options and the column beside the track name", property: "device name and track count",
-};
-
-/** export.pdb holds twenty tables; this many are the sync's. */
-export const PDB_TABLES = 20;
-
 /** "3 added, 1 updated and 2 removed", or "No change". */
 export function describeCounts(added: number, updated: number, removed: number): string {
   const parts = [
@@ -38,15 +28,6 @@ export function describeCounts(added: number, updated: number, removed: number):
 
 export function anyChange(changes: Changes): boolean {
   return changes.tables.length > 0 || changes.myTags;
-}
-
-/** What happens to export.pdb, in a line. */
-export function describeTables(changes: Changes): string {
-  if (changes.created) return "Created";
-  if (changes.rebuilt) return "Written whole: it could not be edited in place";
-  if (changes.tables.length === 0) return "Left as it is";
-  const names = changes.tables.map((table) => TABLE_NAMES[table]);
-  return `${changes.tables.length} of ${PDB_TABLES} tables rewritten: ${names.join(", ")}`;
 }
 
 type Side = Pick<Plan, "oneLibrary" | "deviceLibrary" | "changes">;
@@ -107,17 +88,6 @@ export function comparisonRows(plan: Side): ComparisonRow[] {
       label: s.name, oneLibrary: s.becomes || "None", deviceLibrary: s.now || "None", change: "", changed: true, difference: 0, kind: "setting",
     })),
   ];
-}
-
-/** The changes, as the confirmation lists them. */
-export function summarize(plan: Side): string[] {
-  if (plan.changes.created) return ["The Device Library is created from the OneLibrary", `export.pdb: ${describeTables(plan.changes)}`];
-  const lines = comparisonRows(plan).flatMap(row => {
-    if (row.change) return [`${row.label}: ${row.change}`];
-    if (row.kind === "setting") return [`${row.label}: ${row.deviceLibrary} becomes ${row.oneLibrary}`];
-    return [];
-  });
-  return [...lines, `export.pdb: ${describeTables(plan.changes)}`];
 }
 
 /** What a sync does that people should know before agreeing to it. */

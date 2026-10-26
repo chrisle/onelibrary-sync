@@ -58,7 +58,7 @@ it("syncs the USB the plan was read from and reads it again after", async () => 
   await act(async () => { root.render(<SyncPane />); });
   await settle();
   const sync = row("DJ STICK")?.querySelector<HTMLButtonElement>("button:not([aria-expanded])");
-  expect(sync?.textContent).toBe("Sync…");
+  expect(sync?.textContent).toBe("Sync");
   await act(async () => { sync?.click(); });
   await settle();
   expect(start).toHaveBeenCalledWith("/Volumes/DJ STICK", expect.objectContaining({ files: expect.any(Array) }));

@@ -125,7 +125,6 @@ export interface Backend {
   recoverDevice(path: string): Promise<void>;
   ejectDevice(path: string): Promise<void>;
   openDevice(path: string): Promise<void>;
-  confirm(message: string, labels?: { yes: string; no: string }): Promise<boolean>;
   /** Calls back when a volume is connected or disconnected; resolves to an unsubscribe. */
   onDevicesChanged(callback: () => void): Promise<() => void>;
 }

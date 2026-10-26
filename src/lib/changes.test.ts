@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Changes } from "@/ipc/types";
 import type { Counts } from "@/ipc/types";
-import { comparisonRows, describeCounts, describeTables, summarize, syncNotes } from "./changes";
+import { comparisonRows, describeCounts, syncNotes } from "./changes";
 
 const one: Counts = { tracks: 473, playlists: 14, folders: 3, artists: 383, albums: 349, genres: 20, labels: 201, keys: 22, artwork: 386, myTags: 95, histories: 0 };
 const none: Changes = {
@@ -17,12 +17,6 @@ describe("sync changes", () => {
     expect(describeCounts(1_200, 1, 2)).toBe(`${(1200).toLocaleString()} added, 1 updated and 2 removed`);
   });
 
-  it("names the tables that are rewritten, and only those", () => {
-    expect(describeTables(none)).toBe("Left as it is");
-    expect(describeTables({ ...none, created: true, tables: ["tracks"] })).toBe("Created");
-    expect(describeTables({ ...none, tables: ["playlists", "playlistEntries"] })).toBe("2 of 20 tables rewritten: playlist tree, playlist contents");
-  });
-
   it("sets each count and differing setting of the OneLibrary against the Device Library's", () => {
     const sorts: Changes = { ...none, tables: ["sorts"], settings: [{ name: "Column beside the track name", now: "Comments", becomes: "" }] };
     const rows = comparisonRows({ oneLibrary: one, deviceLibrary: one, changes: sorts });
@@ -32,10 +26,6 @@ describe("sync changes", () => {
     ]);
     expect(rows.filter(row => row.changed)).toEqual([
       { label: "Column beside the track name", oneLibrary: "None", deviceLibrary: "Comments", change: "", changed: true, difference: 0, kind: "setting" },
-    ]);
-    expect(summarize({ oneLibrary: one, deviceLibrary: one, changes: sorts })).toEqual([
-      "Column beside the track name: Comments becomes None",
-      "export.pdb: 1 of 20 tables rewritten: sort options and the column beside the track name",
     ]);
 
     const artists: Changes = { ...none, tables: ["artists", "playlists"], myTags: true, playlistsUpdated: 1,
@@ -48,7 +38,6 @@ describe("sync changes", () => {
   it("marks nothing as changed when there is no Device Library to compare with", () => {
     const created: Changes = { ...none, created: true, tables: ["tracks"] };
     expect(comparisonRows({ oneLibrary: one, deviceLibrary: null, changes: created }).some(row => row.changed)).toBe(false);
-    expect(summarize({ oneLibrary: one, deviceLibrary: null, changes: created })[0]).toBe("The Device Library is created from the OneLibrary");
   });
 
   it("warns about what only the Device Library had, and about files the USB lacks", () => {

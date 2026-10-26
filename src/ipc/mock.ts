@@ -2,9 +2,9 @@
  * A stand-in backend for the browser, so the window can be designed and
  * tested without a USB. Query flags set the situation:
  * `?rekordbox=1` has rekordbox running, `?interrupted=1` leaves an
- * interrupted write on the first USB, `?fail=1` fails syncs, `?decline=1`
- * answers no to every confirmation, `?empty=1` connects nothing, and
- * `?late=1` connects another USB a few seconds after the window opens.
+ * interrupted write on the first USB, `?fail=1` fails syncs, `?empty=1`
+ * connects nothing, and `?late=1` connects another USB a few seconds after
+ * the window opens.
  */
 import type { Backend, Changes, Counts, Device, Plan, Stamp, Status, SyncProgress } from "./types";
 
@@ -156,8 +156,6 @@ export function createMockBackend(): Backend {
       return wait(undefined, 300);
     },
     openDevice: () => wait(undefined),
-    // A browser dialog would stop automated checks; `?decline=1` answers no.
-    confirm: () => wait(!flag("decline")),
     onDevicesChanged: (callback) => {
       listeners.add(callback);
       return Promise.resolve(() => listeners.delete(callback));

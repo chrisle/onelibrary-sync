@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { LoaderCircle } from "lucide-react";
 import type { Device, Plan } from "@/ipc/types";
 import type { PlanState } from "@/store/useDevices";
@@ -38,22 +37,16 @@ function Comparison({ plan }: { plan: Plan }) {
  * A USB opened up: what its two libraries hold side by side, and what a
  * sync would change.
  */
-export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover, onRecheck, onOpen }: {
+export function DeviceDetails({ device, plan, blocked, onSync, onRecover, onRecheck, onOpen }: {
   device: Device;
   plan: PlanState | undefined;
   /** Why a sync cannot start now, if it cannot. */
   blocked: string;
-  /** Bring the sync into view, as the row's Sync… asks. */
-  focus: boolean;
   onSync: () => void;
   onRecover: () => void;
   onRecheck: () => void;
   onOpen: () => void;
 }) {
-  const actions = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (focus) actions.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [focus]);
   const used = device.totalBytes > 0 ? (device.totalBytes - device.freeBytes) / device.totalBytes : 0;
   const header = <div className={styles.detailsHeader}>
     <div className={styles.volume}>
@@ -115,7 +108,7 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
     {header}
     <Comparison plan={plan.plan} />
     {notes.map(note => <p key={note} className={styles.partialNote}>{note}</p>)}
-    <div className={styles.footer} ref={actions}>
+    <div className={styles.footer}>
       <p className={styles.stats}>
         {changes.created ? stat("No", "Device Library yet") : stat(differences.toLocaleString(), differences === 1 ? "difference" : "differences")}
         {plan.plan.deviceName ? stat(plan.plan.deviceName, "device name") : null}
@@ -124,7 +117,7 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
       <div className={styles.actions}>
         {blocked ? <span className={styles.blockedReason} role="status">{blocked}</span> : null}
         <Button className={styles.backupButton} disabled={!changed || blocked !== ""} onClick={onSync}>
-          {changed ? "Sync now…" : "In sync"}
+          {changed ? "Sync now" : "In sync"}
         </Button>
       </div>
     </div>

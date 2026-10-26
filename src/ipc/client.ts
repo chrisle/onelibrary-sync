@@ -11,10 +11,6 @@ function tauriBackend(): Backend {
     recoverDevice: (path) => invoke<void>("recover_device", { path }),
     ejectDevice: (path) => invoke<void>("eject_device", { path }),
     openDevice: (path) => invoke<void>("open_device", { path }),
-    confirm: async (message, labels) => {
-      const { ask } = await import("@tauri-apps/plugin-dialog");
-      return ask(message, { kind: "warning", ...(labels ? { okLabel: labels.yes, cancelLabel: labels.no } : {}) });
-    },
     onDevicesChanged: async (callback) => {
       const { listen } = await import("@tauri-apps/api/event");
       return listen("devices-changed", () => callback());
