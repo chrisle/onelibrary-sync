@@ -109,23 +109,6 @@ export function comparisonRows(plan: Side): ComparisonRow[] {
   ];
 }
 
-/** What a sync does, in a sentence. */
-export function headline(plan: Side): string {
-  if (plan.changes.created) return "A sync creates the Device Library from the OneLibrary.";
-  if (!anyChange(plan.changes)) return "The Device Library already holds what the OneLibrary holds.";
-  const changed = comparisonRows(plan).filter(row => row.changed);
-  if (changed.length > 0) {
-    const n = changed.length;
-    return `${n === 1 ? "1 difference" : `${n.toLocaleString()} differences`}, marked in yellow. A sync makes the Device Library match the OneLibrary.`;
-  }
-  return `A sync rewrites the Device Library's ${plan.changes.tables.map(table => TABLE_NAMES[table]).join(", ")}.`;
-}
-
-/** Which files a sync writes, in a line. */
-export function describeFiles(changes: Changes): string {
-  return `export.pdb: ${describeTables(changes)}. exportExt.pdb: ${changes.myTags ? "rewritten" : "left as it is"}. exportLibrary.db is only read.`;
-}
-
 /** The changes, as the confirmation lists them. */
 export function summarize(plan: Side): string[] {
   if (plan.changes.created) return ["The Device Library is created from the OneLibrary", `export.pdb: ${describeTables(plan.changes)}`];

@@ -93,10 +93,17 @@
 .details .breakdown { margin: 16px 0 20px; }
 .details .breakdownHeading strong { font-size: var(--f-size-ui); }
 .details > * { max-width: 860px; }
-.planBar { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; padding: 12px 0; }
-.planBar p { margin: 0; line-height: 1.5; }
-.headline { font-size: var(--f-size-ui); }
-.blockedReason { color: var(--c-text-dim); }
+.detailsHeader { display: grid; grid-template-columns: minmax(0, auto) minmax(140px, 260px) auto; align-items: center; gap: 8px 20px; padding: 12px 0 4px; }
+.detailsHeader > :last-child { justify-self: end; }
+.volume { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.volume strong { font-size: var(--f-size-ui); font-weight: 600; overflow-wrap: anywhere; }
+.fileSystem { color: var(--c-text-dim); font-size: 11px; letter-spacing: 0.06em; }
+.space { display: flex; flex-direction: column; gap: 4px; color: var(--c-text-dim); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.space .capacityBar { height: 6px; background: var(--c-raised); }
+.blockedReason { color: var(--c-text-dim); align-self: center; }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin-top: 14px; }
+.stats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 24px; margin: 0; color: var(--c-text); line-height: 1.5; font-variant-numeric: tabular-nums; }
+.statLabel { color: var(--c-text-dim); }
 .counts { width: 100%; margin-top: 8px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .counts th, .counts td { padding: 5px 0; border-bottom: 1px solid var(--c-raised); text-align: right; vertical-align: top; font-weight: 400; line-height: 1.45; }
 .counts th[scope="row"], .counts thead th:first-child, .counts .group th { text-align: left; }
@@ -107,9 +114,6 @@
 /* A line a sync changes, in the colour the row's status uses. */
 .counts [data-changed] th, .counts [data-changed] td:last-child { color: var(--c-label-yellow); }
 .delta { margin-left: 6px; color: var(--c-text-dim); font-size: 11px; }
-.files { margin: 10px 0 0; color: var(--c-text-dim); line-height: 1.5; overflow-wrap: anywhere; }
-.facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 12px 0 0; color: var(--c-text-dim); line-height: 1.5; }
-.facts span { user-select: text; -webkit-user-select: text; }
 .choices { margin: 0; padding: 0; border: 0; min-width: 0; }
 .choices legend { margin-bottom: 8px; padding: 0; font-weight: 600; }
 .choice { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--c-raised); }
