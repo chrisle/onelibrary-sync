@@ -1,0 +1,331 @@
+name: Release
+
+# A v* tag builds and signs OneLibrary 4 All for Apple Silicon and Intel Macs,
+# Windows x64, and Linux x64 on the same arc fleet as RBXport. Artifacts share
+# RBXport's R2 bucket but use an isolated namespace:
+#   onelibrary-4all-<version>-<platform>.<ext>
+#   onelibrary-4all-latest.json
+# A manual dispatch with no tag is a build-only preview and does not publish.
+#
+# Required repository secrets:
+# - APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_PASSWORD,
+#   APPLE_SIGNING_IDENTITY, APPLE_TEAM_ID
+#   Source: 1Password / CodeSigning / code-signing (APPLE_CERTIFICATE_P12 and
+#   APPLE_APP_SPECIFIC_PASSWORD map to APPLE_CERTIFICATE and APPLE_PASSWORD).
+# - AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+#   AZURE_SIGNING_ENDPOINT, AZURE_SIGNING_ACCOUNT_NAME,
+#   AZURE_SIGNING_CERT_PROFILE
+#   Source: the AZURE_SIGNING_* fields on that same 1Password item.
+# - R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+#   Source: 1Password / rekordbox-lite / rbxport-releases-r2.
+# Required repository variables: R2_BUCKET and CDN_BASE_URL.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to rebuild and publish (blank builds a preview)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: [self-hosted, linux, x64]
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      source_ref: ${{ steps.release.outputs.source_ref }}
+      preview: ${{ steps.release.outputs.preview }}
+    steps:
+      - name: Resolve release once
+        id: release
+        env:
+          DISPATCH_TAG: ${{ inputs.release_tag }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -z "$DISPATCH_TAG" ]; then
+            tag="dev"
+            version="0.0.0-dev"
+            source_ref="$REF"
+            preview="true"
+          else
+            tag="${DISPATCH_TAG:-$REF_NAME}"
+            version="${tag#v}"
+            source_ref="refs/tags/$tag"
+            preview="false"
+            if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::release tag must look like v1.0.0"
+              exit 1
+            fi
+            for name in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
+              [ -n "${!name:-}" ] || { echo "::error::$name is missing"; exit 1; }
+            done
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "source_ref=$source_ref"
+            echo "preview=$preview"
+          } >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Tests and checks
+    needs: prepare
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_ref }}
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Ensure rustup
+        run: |
+          if [ ! -x "$HOME/.cargo/bin/rustup" ]; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      # See the same step in build-installer.yml.
+      - name: Give cargo a home of its own
+        run: echo "CARGO_HOME=$RUNNER_TEMP/cargo-home" >> "$GITHUB_ENV"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-bin: false
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  build-macos:
+    name: Build ${{ matrix.platform }}
+    needs: [prepare, verify]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - host: [self-hosted, macos, arm64]
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+            slug: darwin-aarch64
+            platform: Mac ARM
+          - host: [self-hosted, macos, arm64]
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+            slug: darwin-x86_64
+            platform: Mac Intel
+    uses: ./.github/workflows/build-installer.yml
+    secrets: inherit
+    with:
+      host: ${{ toJSON(matrix.host) }}
+      target: ${{ matrix.target }}
+      bundles: ${{ matrix.bundles }}
+      slug: ${{ matrix.slug }}
+      source_ref: ${{ needs.prepare.outputs.source_ref }}
+      release_tag: ${{ needs.prepare.outputs.tag }}
+      preview: ${{ needs.prepare.outputs.preview == 'true' }}
+
+  build-other:
+    name: Build ${{ matrix.platform }}
+    needs: [prepare, verify]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: [self-hosted, windows, x64]
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+            slug: windows-x86_64
+            platform: Windows
+          - host: [self-hosted, linux, x64]
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+            slug: linux-x86_64
+            platform: Linux
+    uses: ./.github/workflows/build-installer.yml
+    secrets: inherit
+    with:
+      host: ${{ toJSON(matrix.host) }}
+      target: ${{ matrix.target }}
+      bundles: ${{ matrix.bundles }}
+      slug: ${{ matrix.slug }}
+      source_ref: ${{ needs.prepare.outputs.source_ref }}
+      release_tag: ${{ needs.prepare.outputs.tag }}
+      preview: ${{ needs.prepare.outputs.preview == 'true' }}
+
+  publish:
+    name: Publish to R2
+    if: needs.prepare.outputs.preview == 'false'
+    needs: [prepare, build-macos, build-other]
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          merge-multiple: true
+          path: out
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Ensure AWS CLI
+        run: |
+          set -euo pipefail
+          if ! command -v aws >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/aws" ]; then
+            curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip
+            unzip -qo /tmp/awscliv2.zip -d /tmp
+            /tmp/aws/install --update -i "$HOME/.local/aws-cli" -b "$HOME/.local/bin"
+            rm -rf /tmp/aws /tmp/awscliv2.zip
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Upload installers and feed
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ vars.R2_BUCKET }}
+          CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -n "$BUCKET"
+          test -n "$CDN_BASE_URL"
+          ls -l out
+          for file in out/*; do
+            aws s3 cp "$file" "s3://$BUCKET/$(basename "$file")" \
+              --endpoint-url "$ENDPOINT" --no-progress \
+              --cache-control "public, max-age=31536000, immutable"
+          done
+
+          # shellcheck disable=SC2016
+          node -e '
+            const fs = require("fs");
+            const [, version, base] = process.argv;
+            const files = fs.readdirSync("out").sort();
+            const downloads = {};
+            for (const [platform, suffix] of [
+              ["darwin-aarch64", "-darwin-aarch64.dmg"],
+              ["darwin-x86_64", "-darwin-x86_64.dmg"],
+              ["windows-x86_64", "-windows-x86_64-setup.exe"],
+              ["linux-x86_64", "-linux-x86_64.AppImage"],
+              ["linux-x86_64-deb", "-linux-x86_64.deb"],
+            ]) {
+              const file = files.find((candidate) => candidate.endsWith(suffix));
+              if (!file) throw new Error(`missing ${platform} installer`);
+              downloads[platform] = { file, url: `${base}/${file}` };
+            }
+            fs.writeFileSync("onelibrary-4all-latest.json", JSON.stringify({
+              version,
+              pub_date: new Date().toISOString(),
+              downloads,
+            }, null, 2) + "\n");
+          ' "$VERSION" "${CDN_BASE_URL%/}"
+
+          aws s3 cp onelibrary-4all-latest.json \
+            "s3://$BUCKET/onelibrary-4all-latest.json" \
+            --endpoint-url "$ENDPOINT" --no-progress \
+            --content-type application/json --cache-control "public, max-age=60"
+
+      - name: Verify the published release
+        env:
+          CDN_BASE_URL: ${{ vars.CDN_BASE_URL }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+            "${CDN_BASE_URL%/}/onelibrary-4all-latest.json" -o published.json
+          test "$(node -p 'require("./published.json").version')" = "$VERSION"
+          node -p 'Object.values(require("./published.json").downloads).map((item) => item.url).join("\n")' \
+            | while read -r url; do
+                curl -fsI --retry 5 --retry-all-errors --retry-delay 5 "$url" >/dev/null
+              done
+
+      - name: Keep only the five newest OneLibrary 4 All versions
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ vars.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          aws s3api list-objects-v2 --bucket "$BUCKET" --endpoint-url "$ENDPOINT" \
+            --query 'Contents[].Key' --output json > /tmp/onelibrary-4all-keys.json
+          # shellcheck disable=SC2016
+          node -e '
+            const fs = require("fs");
+            const keys = JSON.parse(fs.readFileSync("/tmp/onelibrary-4all-keys.json", "utf8")) || [];
+            const pattern = /^onelibrary-4all-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-/;
+            const versions = [...new Set(keys.map((key) => pattern.exec(key)?.[1]).filter(Boolean))];
+            const parse = (value) => {
+              const [core, pre = ""] = value.split("-", 2);
+              return { core: core.split(".").map(Number), pre };
+            };
+            versions.sort((left, right) => {
+              const a = parse(left), b = parse(right);
+              for (let i = 0; i < 3; i++) if (a.core[i] !== b.core[i]) return b.core[i] - a.core[i];
+              if (!a.pre && b.pre) return -1;
+              if (a.pre && !b.pre) return 1;
+              return b.pre.localeCompare(a.pre, undefined, { numeric: true });
+            });
+            const keep = new Set(versions.slice(0, 5));
+            const drop = keys.filter((key) => {
+              const match = pattern.exec(key);
+              return match && !keep.has(match[1]);
+            });
+            fs.writeFileSync("/tmp/onelibrary-4all-delete.json", JSON.stringify({
+              Objects: drop.map((Key) => ({ Key })), Quiet: true,
+            }));
+            console.log(`keeping ${[...keep].join(", ") || "nothing"}; deleting ${drop.length} objects`);
+          '
+          if [ "$(node -p 'require("/tmp/onelibrary-4all-delete.json").Objects.length')" -gt 0 ]; then
+            aws s3api delete-objects --bucket "$BUCKET" --endpoint-url "$ENDPOINT" \
+              --delete file:///tmp/onelibrary-4all-delete.json
+          fi
