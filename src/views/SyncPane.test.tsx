@@ -29,7 +29,7 @@ it("says what stands in the way of a sync", () => {
   expect(blockedReason({ rekordboxRunning: false }, false)).toBe("");
   expect(blockedReason(null, false)).toMatch(/^Checking/);
   expect(blockedReason({ rekordboxRunning: true }, false)).toMatch(/^Quit rekordbox/);
-  expect(blockedReason({ rekordboxRunning: true }, true)).toBe("A sync is running.");
+  expect(blockedReason({ rekordboxRunning: true }, true)).toBe("This USB is being synced.");
 });
 
 it("lists each USB with what a sync would do to it", async () => {
@@ -77,4 +77,31 @@ it("does not sync a USB that is already in sync", async () => {
   await settle();
   expect(row("WARMUP")?.querySelector<HTMLButtonElement>("button:not([aria-expanded])")?.disabled).toBe(true);
   expect(buttons("Eject")).toHaveLength(4);
+});
+
+it("syncs the chosen USBs side by side with Sync all", async () => {
+  const start = vi.spyOn(held.backend, "startSync");
+  await act(async () => { root.render(<SyncPane />); });
+  await settle();
+  const box = (name: string) => row(name)?.querySelector<HTMLInputElement>("input[type=checkbox]");
+  // Only a USB with something to sync can be chosen.
+  expect(box("WARMUP")?.disabled).toBe(true);
+  expect(box("SAMSUNG T7")?.disabled).toBe(true);
+  expect(buttons("Sync all")).toHaveLength(0);
+  await act(async () => { box("DJ STICK")?.click(); });
+  await act(async () => { box("TOUR USB")?.click(); });
+  expect(buttons("Sync all")).toHaveLength(1);
+  await act(async () => { buttons("Sync all")[0]?.click(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+  expect(start).toHaveBeenCalledTimes(2);
+  expect(row("DJ STICK")?.textContent).toMatch(/Syncing…/);
+  expect(row("TOUR USB")?.textContent).toMatch(/Syncing…/);
+  expect(host.textContent).toContain("Keep DJ STICK and TOUR USB connected");
+  expect(buttons("Sync all")).toHaveLength(0);
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+  await settle();
+  expect(host.textContent).toContain("DJ STICK synced.");
+  expect(host.textContent).toContain("TOUR USB synced.");
+  expect(row("DJ STICK")?.textContent).toContain("In sync");
+  expect(row("TOUR USB")?.textContent).toContain("In sync");
 });

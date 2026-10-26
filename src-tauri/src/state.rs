@@ -4,6 +4,7 @@ use onelibrary_sync::{Fingerprint, Plan, Report, Step};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::{
+    collections::BTreeMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -70,14 +71,16 @@ pub struct SyncProgress {
 }
 
 pub struct AppState {
-    job: Mutex<SyncProgress>,
+    /// Each USB's latest sync, running or finished, by mount point. USBs
+    /// sync side by side; one USB syncs once at a time.
+    jobs: Mutex<BTreeMap<PathBuf, SyncProgress>>,
     /// Whether rekordbox is running; replaced in tests.
     rekordbox: fn() -> bool,
 }
 
 impl Default for AppState {
     fn default() -> Self {
-        Self { job: Mutex::new(SyncProgress::default()), rekordbox: processes::rekordbox_running }
+        Self { jobs: Mutex::new(BTreeMap::new()), rekordbox: processes::rekordbox_running }
     }
 }
 
@@ -116,8 +119,7 @@ impl AppState {
     }
 
     fn syncing(&self, path: &Path) -> bool {
-        let job = self.job.lock();
-        job.running && job.path.as_deref().is_some_and(|p| Path::new(p) == path)
+        self.jobs.lock().get(path).is_some_and(|job| job.running)
     }
 
     pub fn plan(&self, path: &str) -> Outcome<Plan> {
@@ -144,39 +146,50 @@ impl AppState {
         rbl_devices::eject::eject(&path).map_err(|e| Failure::new(format!("The USB could not be ejected: {e}")))
     }
 
-    pub fn sync_progress(&self) -> SyncProgress {
-        self.job.lock().clone()
+    /// Every USB's latest sync, in mount point order.
+    pub fn sync_progress(&self) -> Vec<SyncProgress> {
+        self.jobs.lock().values().cloned().collect()
     }
 
     /// Starts syncing the stick at `path`, if it is still as `expected`
-    /// describes it. The job is reserved before it starts, so two requests
-    /// cannot both run.
+    /// describes it. Other sticks may be syncing meanwhile. The stick's job
+    /// is reserved before it starts, so two requests for it cannot both run.
     pub fn start_sync(self: &Arc<Self>, path: &str, expected: Fingerprint) -> Outcome<()> {
         let path = Self::connected(path)?;
         if (self.rekordbox)() {
             return Err(Failure::new("Quit rekordbox before syncing. It writes to the USBs it sees."));
         }
-        {
-            let mut job = self.job.lock();
-            if job.running {
-                return Err(Failure::new("A sync is already running."));
+        let previous = {
+            let mut jobs = self.jobs.lock();
+            if jobs.get(&path).is_some_and(|job| job.running) {
+                return Err(Failure::new("This USB is already being synced."));
             }
-            *job = SyncProgress {
-                running: true,
-                phase: Step::Reading.name().into(),
-                path: Some(path.to_string_lossy().into_owned()),
-                ..SyncProgress::default()
-            };
-        }
+            jobs.insert(
+                path.clone(),
+                SyncProgress {
+                    running: true,
+                    phase: Step::Reading.name().into(),
+                    path: Some(path.to_string_lossy().into_owned()),
+                    ..SyncProgress::default()
+                },
+            )
+        };
         let state = Arc::clone(self);
+        let mount = path.clone();
         std::thread::Builder::new()
             .name("sync".into())
             .spawn(move || {
+                let phase = |step: Step| {
+                    if let Some(job) = state.jobs.lock().get_mut(&mount) {
+                        step.name().clone_into(&mut job.phase);
+                    }
+                };
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    onelibrary_sync::sync(&path, &expected, &mut |step| step.name().clone_into(&mut state.job.lock().phase))
+                    onelibrary_sync::sync(&mount, &expected, &mut |step| phase(step))
                 }))
                 .unwrap_or_else(|_| Err(onelibrary_sync::Error::Verify("The sync stopped unexpectedly.".into())));
-                let mut job = state.job.lock();
+                let mut jobs = state.jobs.lock();
+                let Some(job) = jobs.get_mut(&mount) else { return };
                 job.running = false;
                 match result {
                     Ok(report) => {
@@ -191,7 +204,11 @@ impl AppState {
                 }
             })
             .map_err(|e| {
-                *self.job.lock() = SyncProgress::default();
+                let mut jobs = self.jobs.lock();
+                match previous {
+                    Some(previous) => jobs.insert(path, previous),
+                    None => jobs.remove(&path),
+                };
                 Failure::new(format!("The sync could not start: {e}"))
             })?;
         Ok(())
@@ -204,13 +221,9 @@ mod tests {
     use super::*;
     use std::time::{Duration, Instant};
 
-    /// A stick with a one-track `OneLibrary`, listed as the only volume.
-    /// Only this test lists volumes, so setting the variable is safe.
-    #[test]
-    fn syncs_a_listed_stick_and_refuses_while_rekordbox_runs_or_for_another_path() {
-        static REKORDBOX: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-        let dir = tempfile::tempdir().unwrap();
-        let stick = dir.path().join("DJ STICK");
+    /// A stick named `name` in `dir` with a one-track `OneLibrary`.
+    fn stick(dir: &Path, name: &str) -> PathBuf {
+        let stick = dir.join(name);
         let db_dir = stick.join("PIONEER/rekordbox");
         std::fs::create_dir_all(&db_dir).unwrap();
         let mut builder = rbl_onelibrary::build::Builder::create(&db_dir.join("exportLibrary.db")).unwrap();
@@ -223,33 +236,54 @@ mod tests {
                 ..rbl_onelibrary::build::Track::default()
             })
             .unwrap();
-        builder.finish("DJ STICK", "2026-10-25", 0).unwrap();
-        std::env::set_var(rbl_devices::FAKE_VOLUMES, &stick);
+        builder.finish(name, "2026-10-25", 0).unwrap();
+        stick
+    }
+
+    /// Two sticks listed as the only volumes, synced side by side. Only this
+    /// test lists volumes, so setting the variable is safe.
+    #[test]
+    fn syncs_listed_sticks_side_by_side_and_refuses_while_rekordbox_runs_or_for_another_path() {
+        static REKORDBOX: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        let dir = tempfile::tempdir().unwrap();
+        let sticks = [stick(dir.path(), "DJ STICK"), stick(dir.path(), "TOUR USB")];
+        std::env::set_var(rbl_devices::FAKE_VOLUMES, std::env::join_paths(&sticks).unwrap());
 
         let state = Arc::new(AppState { rekordbox: || REKORDBOX.load(std::sync::atomic::Ordering::Relaxed), ..AppState::default() });
         let listed = AppState::devices();
-        assert_eq!(listed.len(), 1);
-        assert!(listed[0].has_one_library && !listed[0].has_device_library);
-        let path = listed[0].path.clone();
-        let plan = state.plan(&path).unwrap();
-        assert_eq!(plan.changes.tracks_added, 1);
+        assert_eq!(listed.len(), 2);
+        assert!(listed.iter().all(|device| device.has_one_library && !device.has_device_library));
+        let paths: Vec<String> = listed.iter().map(|device| device.path.clone()).collect();
+        let plans: Vec<Plan> = paths.iter().map(|path| state.plan(path).unwrap()).collect();
+        assert_eq!(plans[0].changes.tracks_added, 1);
         assert!(state.plan(&dir.path().to_string_lossy()).is_err(), "not a listed volume");
 
         REKORDBOX.store(true, std::sync::atomic::Ordering::Relaxed);
-        assert!(state.start_sync(&path, plan.fingerprint.clone()).is_err());
+        assert!(state.start_sync(&paths[0], plans[0].fingerprint.clone()).is_err());
         REKORDBOX.store(false, std::sync::atomic::Ordering::Relaxed);
 
-        state.start_sync(&path, plan.fingerprint).unwrap();
+        // A stick already syncing is not started twice.
+        let running = SyncProgress { running: true, ..SyncProgress::default() };
+        state.jobs.lock().insert(PathBuf::from(&paths[0]), running);
+        assert!(state.start_sync(&paths[0], plans[0].fingerprint.clone()).is_err());
+        state.jobs.lock().clear();
+
+        for (path, plan) in paths.iter().zip(&plans) {
+            state.start_sync(path, plan.fingerprint.clone()).unwrap();
+        }
         let deadline = Instant::now() + Duration::from_secs(30);
-        while state.sync_progress().running {
+        while state.sync_progress().iter().any(|job| job.running) {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(20));
         }
         let done = state.sync_progress();
-        assert_eq!(done.phase, "complete", "{:?}", done.error);
-        assert!(done.report.unwrap().changes.created);
-        assert!(AppState::devices()[0].has_device_library);
-        assert!(!state.plan(&path).unwrap().changes.any());
+        assert_eq!(done.len(), 2);
+        for job in done {
+            assert_eq!(job.phase, "complete", "{:?}", job.error);
+            assert!(job.report.unwrap().changes.created);
+        }
+        assert!(AppState::devices().iter().all(|device| device.has_device_library));
+        assert!(paths.iter().all(|path| !state.plan(path).unwrap().changes.any()));
         std::env::remove_var(rbl_devices::FAKE_VOLUMES);
     }
 }

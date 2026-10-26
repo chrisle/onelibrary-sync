@@ -40,7 +40,7 @@ pub fn start_sync(state: State<'_, Arc<AppState>>, path: String, fingerprint: Fi
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value, reason = "Tauri's State extractor is injected by value")]
-pub fn sync_progress(state: State<'_, Arc<AppState>>) -> SyncProgress {
+pub fn sync_progress(state: State<'_, Arc<AppState>>) -> Vec<SyncProgress> {
     state.sync_progress()
 }
 

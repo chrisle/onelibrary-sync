@@ -93,22 +93,27 @@ export function createMockBackend(): Backend {
     }, 3000);
   }
 
-  let progress: SyncProgress = { running: false, phase: "", path: null, error: null, report: null };
+  const jobs = new Map<string, SyncProgress>();
   const refuse = (message: string) => Promise.reject(new Error(message));
   const find = (path: string) => sticks.get(path);
 
   const run = (item: Stick) => {
     const steps: SyncProgress["phase"][] = ["reading", "writing", "verifying"];
+    const { path } = item.device;
     let step = 0;
+    const set = (change: Partial<SyncProgress>) => {
+      const job = jobs.get(path);
+      if (job) jobs.set(path, { ...job, ...change });
+    };
     const tick = () => {
       if (step < steps.length) {
-        progress = { ...progress, phase: steps[step] ?? "reading" };
+        set({ phase: steps[step] ?? "reading" });
         step += 1;
         setTimeout(tick, 700);
       } else if (flag("fail")) {
-        progress = { ...progress, running: false, phase: "failed", error: "The USB changed since it was checked. Nothing was changed; check it again and sync." };
+        set({ running: false, phase: "failed", error: "The USB changed since it was checked. Nothing was changed; check it again and sync." });
       } else {
-        progress = { ...progress, running: false, phase: "complete", report: { changes: item.changes, elapsedMs: 2_140 } };
+        set({ running: false, phase: "complete", report: { changes: item.changes, elapsedMs: 2_140 } });
         item.legacy = item.one ? { ...item.one } : null;
         item.device = { ...item.device, hasDeviceLibrary: true };
         item.changes = NONE;
@@ -138,13 +143,13 @@ export function createMockBackend(): Backend {
       const item = find(path);
       if (!item) return refuse("The USB is no longer connected.");
       if (flag("rekordbox")) return refuse("Quit rekordbox before syncing. It writes to the USBs it sees.");
-      if (progress.running) return refuse("A sync is already running.");
+      if (jobs.get(path)?.running) return refuse("This USB is already being synced.");
       if (fingerprint.files[0]?.modifiedMs !== item.stamp) return refuse("The USB changed since it was checked. Nothing was changed; check it again and sync.");
-      progress = { running: true, phase: "reading", path, error: null, report: null };
+      jobs.set(path, { running: true, phase: "reading", path, error: null, report: null });
       run(item);
       return wait(undefined);
     },
-    syncProgress: () => wait({ ...progress }, 10),
+    syncProgress: () => wait([...jobs.values()].map((job) => ({ ...job })), 10),
     recoverDevice: (path) => {
       const item = find(path);
       if (item) item.device = { ...item.device, interrupted: false };

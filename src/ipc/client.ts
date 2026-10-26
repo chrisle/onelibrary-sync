@@ -7,7 +7,7 @@ function tauriBackend(): Backend {
     listDevices: () => invoke<Device[]>("list_devices"),
     planDevice: (path) => invoke<Plan>("plan_device", { path }),
     startSync: (path, fingerprint: Fingerprint) => invoke<void>("start_sync", { path, fingerprint }),
-    syncProgress: () => invoke<SyncProgress>("sync_progress"),
+    syncProgress: () => invoke<SyncProgress[]>("sync_progress"),
     recoverDevice: (path) => invoke<void>("recover_device", { path }),
     ejectDevice: (path) => invoke<void>("eject_device", { path }),
     openDevice: (path) => invoke<void>("open_device", { path }),

@@ -119,9 +119,10 @@ export interface Backend {
   listDevices(): Promise<Device[]>;
   /** Reads the USB's libraries; a second or so for a large one. */
   planDevice(path: string): Promise<Plan>;
-  /** Refused when the USB no longer matches the plan's fingerprint. */
+  /** Refused when the USB no longer matches the plan's fingerprint, or is already syncing. Other USBs may sync meanwhile. */
   startSync(path: string, fingerprint: Fingerprint): Promise<void>;
-  syncProgress(): Promise<SyncProgress>;
+  /** Each USB's latest sync, running or finished. */
+  syncProgress(): Promise<SyncProgress[]>;
   recoverDevice(path: string): Promise<void>;
   ejectDevice(path: string): Promise<void>;
   openDevice(path: string): Promise<void>;
