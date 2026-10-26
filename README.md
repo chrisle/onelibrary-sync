@@ -1,10 +1,12 @@
+<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" alt="OneLibrary 4 All logo" width="128" height="128">
+</p>
+
 # OneLibrary 4 All
 
-OneLibrary 4 All brings the Device Library (`export.pdb`) on a USB stick in
-line with the OneLibrary (`exportLibrary.db`) on the same stick, so players
-that read only the Device Library, such as the CDJ-2000NXS2 and XDJ-1000MK2,
-see the tracks, playlists and My Tags the OneLibrary holds. It looks and works
-like RBXport Restore.
+OneLibrary 4 All copies the OneLibrary on a USB stick to the Device Library on
+the same stick, so the stick can be used with older Pioneer DJ equipment that
+reads only the Device Library, such as the CDJ-2000NXS2 and XDJ-1000MK2.
 
 It is built with Tauri 2, Rust and React for macOS, Windows and Linux, and is
 licensed GPL-2.0-or-later.
@@ -19,6 +21,8 @@ licensed GPL-2.0-or-later.
   and My Tags, with differences highlighted, and what a sync would change.
 - **Sync** syncs one way, from the OneLibrary to the Device Library, without
   asking again. The OneLibrary is only read.
+- Ticking the box beside several USBs shows **Sync all**, which syncs them at
+  the same time.
 - **Eject** hands the USB back to the system so it can be unplugged.
 
 Only the USB is read and written. The rekordbox library on the computer is
