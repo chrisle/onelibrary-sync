@@ -1,0 +1,110 @@
+# OneLibrary 4 All
+
+OneLibrary 4 All brings the Device Library (`export.pdb`) on a USB stick in
+line with the OneLibrary (`exportLibrary.db`) on the same stick, so players
+that read only the Device Library, such as the CDJ-2000NXS2 and XDJ-1000MK2,
+see the tracks, playlists and My Tags the OneLibrary holds. It looks and works
+like RBXport Restore.
+
+It is built with Tauri 2, Rust and React for macOS, Windows and Linux, and is
+licensed GPL-2.0-or-later.
+
+## What it does
+
+- Lists every connected volume and notices a USB being plugged in or pulled
+  out within two seconds. Each one with a OneLibrary is read straight away and
+  shows whether it is in sync.
+- Opening a USB (the arrow) shows what its two libraries hold side by side:
+  tracks, playlists, folders, artists, albums, genres, labels, keys, artwork
+  and My Tags, with differences highlighted, and what a sync would change.
+- **Sync…** shows that summary for confirmation and syncs one way, from the
+  OneLibrary to the Device Library. The OneLibrary is only read.
+- **Eject** hands the USB back to the system so it can be unplugged.
+
+Only the USB is read and written. The rekordbox library on the computer is
+never opened.
+
+## What a sync writes
+
+The audio, analysis and artwork files are already on the USB, and both
+libraries name the same files, so a sync writes only the Device Library's
+databases, and of those only what differs:
+
+- Each of the fourteen tables of `export.pdb` that a OneLibrary fills is
+  compared with what the USB holds, decoded the way a player reads it. A
+  table that reads the same is left byte for byte as it is; one that differs
+  is rewritten in place, leaving every other table's pages untouched.
+- `exportExt.pdb`, the My Tags, is written only when the tags or the tracks
+  carrying them differ.
+- A USB that is already in sync is not written at all.
+
+A track the Device Library already holds keeps the fields rekordbox writes
+differently into its two libraries (the master library's ids, the file size
+and the file's creation date), so a USB rekordbox exported with both
+libraries reads as in sync. The play history players record in the Device
+Library is the USB's own and is kept.
+
+Playlists, folders and tracks that only the Device Library has, such as a
+playlist saved on a player, are removed. The confirmation says so when that
+happens.
+
+## Safety
+
+- Quit rekordbox before syncing; it writes to the USBs it sees.
+- The sync reads the USB again and compares it with what the confirmation
+  showed. If the USB changed in between, or changes while the new files are
+  being prepared, nothing is written.
+- Files are written through RBXport's publication journal and write lock on
+  the USB (`.rbxport-publication`, `.rbxport-write.lock`). This app and RBXport
+  never write a USB at the same time, and an interrupted write is finished
+  before the USB is read again, by either app.
+- The new `export.pdb` is decoded and checked against the OneLibrary before
+  it is published, and read back after.
+
+## Development
+
+The database formats, the durable publication and the volume handling come
+from RBXport's library crates. Pinned snapshots of those crates live under
+`crates/` (`rbl-core`, `rbl-anlz`, `rbl-pdb` and `rbl-onelibrary` from rbxport
+`c79284c1`; `rbl-devices` trimmed to listing, watching and ejecting). The sync
+itself is `crates/sync`.
+
+```sh
+pnpm install
+pnpm dev          # the app
+pnpm dev:web      # the window in a browser, with a stand-in backend
+```
+
+```sh
+pnpm test && pnpm typecheck && pnpm lint
+cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
+```
+
+In the browser, `?rekordbox=1` has rekordbox running, `?interrupted=1` leaves
+an interrupted write on the first USB, `?fail=1` fails syncs, `?decline=1`
+answers no to confirmations, `?empty=1` connects nothing and `?late=1`
+connects another USB after a few seconds.
+
+To try the real app on a copy of a USB, set `RB_LITE_FAKE_VOLUMES` to a
+`:`-separated list of folders that stand in for volumes. Two command-line
+examples work on any mounted USB or folder:
+
+```sh
+cargo run -p onelibrary-sync --example plan -- /Volumes/DJ\ STICK --diff
+cargo run -p onelibrary-sync --example sync -- /Volumes/DJ\ STICK
+```
+
+## Releases
+
+Pushing a version tag such as `v0.1.0` runs the release workflow on the arc
+self-hosted fleet. It builds signed and notarized macOS DMGs for Apple Silicon
+and Intel, a signed Windows installer, and Linux AppImage and Debian packages.
+
+Release files share RBXport's R2 bucket under the isolated
+`onelibrary-4all-<version>-<platform>` namespace. The current download manifest
+is `onelibrary-4all-latest.json`; RBXport's own `latest.json` is never changed.
+A manual workflow run without a tag builds preview artifacts without publishing.
+
+## License
+
+GPL-2.0-or-later. See [LICENSE](LICENSE) and [COPYING](COPYING).
