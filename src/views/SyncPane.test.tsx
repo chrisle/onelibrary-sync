@@ -35,6 +35,7 @@ it("says what stands in the way of a sync", () => {
 it("lists each USB with what a sync would do to it", async () => {
   await act(async () => { root.render(<SyncPane />); });
   await settle();
+  expect(host.textContent).toContain("Version 0.");
   expect(host.querySelectorAll("tbody tr")).toHaveLength(4);
   expect(row("DJ STICK")?.textContent).toContain("Needs sync");
   expect(row("TOUR USB")?.textContent).toContain("No Device Library yet");

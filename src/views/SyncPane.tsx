@@ -93,7 +93,7 @@ export function SyncPane() {
 
   const blocked = blockedReason(status, job.progress.running);
   const unavailable = busy !== "" || job.progress.running;
-  return <Section title="OneLibrary 4 All">
+  return <Section title="OneLibrary 4 All" subtitle={`Version ${__APP_VERSION__}`}>
     {status?.rekordboxRunning ? <p className={styles.blockedNotice}>Quit rekordbox before syncing. It writes to the USBs it sees.</p> : null}
     {error || listError ? <p role="alert" className={styles.error}>{error || listError}</p> : null}
 

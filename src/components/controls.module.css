@@ -11,6 +11,11 @@
   font-weight: 700;
   line-height: 22px;
 }
+.subtitle {
+  margin: -14px 0 16px;
+  color: var(--c-text-dim);
+  font-size: var(--f-size-sm);
+}
 .button {
   height: var(--s-pref-button-h);
   padding: 0 14px;

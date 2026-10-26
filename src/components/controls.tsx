@@ -6,10 +6,11 @@ import type { ReactNode } from "react";
 
 import styles from "./controls.module.css";
 
-export function Section({ title, children }: { title: string; children?: ReactNode }) {
+export function Section({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children?: ReactNode }) {
   return (
     <section className={styles.section} aria-label={title}>
       <h3 className={styles.title}>{title}</h3>
+      {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
       {children}
     </section>
   );
