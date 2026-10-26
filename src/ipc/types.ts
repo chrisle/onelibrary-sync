@@ -53,6 +53,27 @@ export interface Changes {
   rebuilt: boolean;
   /** exportExt.pdb, the My Tags, is written. */
   myTags: boolean;
+  /** The artists, albums, genres, labels, keys and artwork that change. */
+  records: Records[];
+  /** The settings that change, such as the column beside the track name. Empty when export.pdb is created. */
+  settings: Setting[];
+}
+
+/** How a list of the Device Library changes. */
+export interface Records {
+  table: Table;
+  added: number;
+  updated: number;
+  removed: number;
+}
+
+/** A setting of the Device Library that a sync changes. */
+export interface Setting {
+  name: string;
+  /** What the Device Library has now. */
+  now: string;
+  /** What it has after the sync: the OneLibrary's. */
+  becomes: string;
 }
 
 /** The USB's database files by size and time, as the plan saw them. */

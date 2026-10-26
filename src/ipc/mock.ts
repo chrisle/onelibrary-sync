@@ -28,7 +28,7 @@ function counts(tracks: number, extra: Partial<Counts> = {}): Counts {
 
 const NONE: Changes = {
   tracksAdded: 0, tracksUpdated: 0, tracksRemoved: 0, playlistsAdded: 0, playlistsUpdated: 0, playlistsRemoved: 0,
-  tables: [], created: false, rebuilt: false, myTags: false,
+  tables: [], created: false, rebuilt: false, myTags: false, records: [], settings: [],
 };
 
 interface Stick {
@@ -59,7 +59,9 @@ export function createMockBackend(): Backend {
     add(stick("DJ STICK", { interrupted: flag("interrupted") }, {
       one: counts(1_843), legacy: counts(1_812, { playlists: 47, myTags: 29 }),
       changes: { ...NONE, tracksAdded: 34, tracksUpdated: 6, tracksRemoved: 3, playlistsAdded: 2, playlistsUpdated: 5, playlistsRemoved: 1,
-        tables: ["tracks", "artists", "albums", "playlists", "playlistEntries", "artwork", "property"], myTags: true },
+        tables: ["tracks", "artists", "albums", "playlists", "playlistEntries", "artwork", "sorts", "property"], myTags: true,
+        records: [{ table: "artists", added: 12, updated: 1, removed: 0 }, { table: "albums", added: 9, updated: 0, removed: 2 }, { table: "artwork", added: 21, updated: 0, removed: 0 }],
+        settings: [{ name: "Column beside the track name", now: "Comments", becomes: "BPM" }] },
       missingAudio: 0, missingAnalysis: 2,
     }));
     add(stick("TOUR USB", { fileSystem: "exFAT", totalBytes: 128 * GB, freeBytes: 88.2 * GB }, {

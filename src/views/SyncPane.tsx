@@ -78,7 +78,7 @@ export function SyncPane() {
     const plan = plans.get(device.path);
     if (plan?.state !== "ready") return;
     void run("", async b => {
-      const lines = summarize(plan.plan.changes).map(line => `• ${line}`).join("\n");
+      const lines = summarize(plan.plan).map(line => `• ${line}`).join("\n");
       const ask = `Sync the Device Library on ${device.name}?\n\n${lines}\n\nThe OneLibrary is read and never changed.`;
       if (!await b.confirm(ask, { yes: "Sync", no: "Cancel" })) return "";
       await job.start(device.path, plan.plan.fingerprint);

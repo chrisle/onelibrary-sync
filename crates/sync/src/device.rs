@@ -202,6 +202,51 @@ impl Contents {
     }
 }
 
+/// A menu item as people read it: "Comments", "BPM", "DJ play count".
+fn menu_item_name(menu_item: u16) -> String {
+    use rbl_onelibrary::build::reference::MENU_ITEMS;
+    let Some((_, _, name)) = MENU_ITEMS.iter().find(|(id, _, _)| *id == i64::from(menu_item)) else {
+        return format!("Menu item {menu_item}");
+    };
+    let words: Vec<String> = name
+        .split(' ')
+        .enumerate()
+        .map(|(at, word)| match word {
+            "BPM" | "DJ" => word.to_owned(),
+            _ if at == 0 => word.chars().take(1).chain(word.chars().skip(1).flat_map(char::to_lowercase)).collect(),
+            _ => word.to_lowercase(),
+        })
+        .collect();
+    words.join(" ")
+}
+
+/// Visible menu items in order, joined, or "None".
+fn menu_list(mut shown: Vec<(u16, u16)>) -> String {
+    shown.sort_unstable();
+    let names: Vec<String> = shown.into_iter().map(|(_, item)| menu_item_name(item)).collect();
+    if names.is_empty() { "None".to_owned() } else { names.join(", ") }
+}
+
+impl Contents {
+    /// The settings players show from this file, by the names people know
+    /// them by, each with its value.
+    pub fn settings(&self) -> [(&'static str, String); 5] {
+        let item = |row: &[u8; 8]| u16::from_le_bytes([row[0], row[1]]);
+        let sub_column = self.sorts.iter().find(|row| row[4] & 2 != 0).map_or_else(|| "None".to_owned(), |row| menu_item_name(item(row)));
+        let sorts = self.sorts.iter().filter(|row| row[4] & 1 == 0).map(|row| (u16::from(row[5]), item(row))).collect();
+        let categories =
+            self.categories.iter().filter(|row| row[5] & 1 == 0).map(|row| (u16::from_le_bytes([row[6], row[7]]), item(row))).collect();
+        let colors = self.colors.values().cloned().collect::<Vec<_>>().join(", ");
+        [
+            ("Column beside the track name", sub_column),
+            ("Sort options", menu_list(sorts)),
+            ("Browse categories", menu_list(categories)),
+            ("Colour names", colors),
+            ("Device name", self.property.as_ref().map(|p| p.0.clone()).unwrap_or_default()),
+        ]
+    }
+}
+
 fn eight(pdb: &Pdb<'_>, row: RowRef) -> [u8; 8] {
     std::array::from_fn(|i| pdb.u1_at(row, i))
 }

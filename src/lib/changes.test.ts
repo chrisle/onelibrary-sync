@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Changes } from "@/ipc/types";
-import { describeCounts, describeTables, summarize, syncNotes } from "./changes";
+import type { Counts } from "@/ipc/types";
+import { changeRows, describeCounts, describeTables, summarize, syncNotes } from "./changes";
 
+const one: Counts = { tracks: 473, playlists: 14, folders: 3, artists: 383, albums: 349, genres: 20, labels: 201, keys: 22, artwork: 386, myTags: 95, histories: 0 };
 const none: Changes = {
   tracksAdded: 0, tracksUpdated: 0, tracksRemoved: 0, playlistsAdded: 0, playlistsUpdated: 0, playlistsRemoved: 0,
-  tables: [], created: false, rebuilt: false, myTags: false,
+  tables: [], created: false, rebuilt: false, myTags: false, records: [], settings: [],
 };
 
 describe("sync changes", () => {
@@ -19,7 +21,25 @@ describe("sync changes", () => {
     expect(describeTables(none)).toBe("Left as it is");
     expect(describeTables({ ...none, created: true, tables: ["tracks"] })).toBe("Created");
     expect(describeTables({ ...none, tables: ["playlists", "playlistEntries"] })).toBe("2 of 20 tables rewritten: playlist tree, playlist contents");
-    expect(summarize({ ...none, myTags: true }).at(-1)).toBe("My Tags: exportExt.pdb rewritten");
+  });
+
+  it("sets what the OneLibrary has against what the Device Library has now", () => {
+    const sorts: Changes = { ...none, tables: ["sorts"], settings: [{ name: "Column beside the track name", now: "Comments", becomes: "" }] };
+    expect(changeRows({ oneLibrary: one, deviceLibrary: one, changes: sorts })).toEqual([
+      { label: "Tracks", oneLibrary: "473", deviceLibrary: "473", change: "" },
+      { label: "Playlists and folders", oneLibrary: "17", deviceLibrary: "17", change: "" },
+      { label: "Column beside the track name", oneLibrary: "None", deviceLibrary: "Comments", change: "Becomes None" },
+      { label: "My Tags", oneLibrary: "95", deviceLibrary: "95", change: "" },
+      { label: "Files", oneLibrary: "exportLibrary.db, only read", deviceLibrary: "export.pdb", change: "1 of 20 tables rewritten: sort options and the column beside the track name" },
+    ]);
+    const artists: Changes = { ...none, tables: ["artists"], myTags: true, records: [{ table: "artists", added: 2, updated: 0, removed: 1 }] };
+    expect(changeRows({ oneLibrary: one, deviceLibrary: { ...one, artists: 382 }, changes: artists })[2])
+      .toEqual({ label: "Artists", oneLibrary: "383", deviceLibrary: "382", change: "2 added and 1 removed" });
+    expect(summarize({ oneLibrary: one, deviceLibrary: null, changes: artists })).toEqual([
+      "Artists: 2 added and 1 removed",
+      "My Tags: exportExt.pdb rewritten",
+      "Files: 1 of 20 tables rewritten: artists",
+    ]);
   });
 
   it("warns about what only the Device Library had, and about files the USB lacks", () => {

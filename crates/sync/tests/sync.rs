@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use onelibrary_sync::{device, plan, sync, Error, Table};
+use onelibrary_sync::{device, plan, sync, Error, Records, Setting, Table};
 use rbl_onelibrary::build::{Builder, LookupTable, Track};
 
 struct Stick {
@@ -229,6 +229,8 @@ fn tracks_added_changed_and_removed_follow_the_one_library() {
     // Still three tracks, under the same name: the property row stays.
     assert!(!planned.changes.tables.contains(&Table::Property));
     assert!(!planned.changes.my_tags, "only track 1 carries a tag");
+    assert_eq!(planned.changes.records, vec![Records { table: Table::Artists, added: 0, updated: 0, removed: 1 }]);
+    assert!(planned.changes.settings.is_empty());
     sync(stick.mount(), &planned.fingerprint, &mut |_| {}).unwrap();
     let contents = stick.contents();
     assert_eq!(contents.tracks.keys().copied().collect::<Vec<_>>(), vec![1, 2, 9]);
@@ -239,6 +241,22 @@ fn tracks_added_changed_and_removed_follow_the_one_library() {
     assert_eq!(contents.property.as_ref().map(|p| p.1), Some(3));
     // Artist 3 belonged to the removed track only.
     assert!(!contents.artists.values().any(|a| a == "Artist 3"));
+}
+
+#[test]
+fn a_setting_change_says_what_the_device_library_has_and_what_it_becomes() {
+    let stick = stick(3);
+    stick.sync();
+    stick.edit("UPDATE sort SET isSelectedAsSubColumn = (menuItem_id = 5);");
+    let planned = plan(stick.mount()).unwrap();
+    assert_eq!(planned.changes.tables, vec![Table::Sorts]);
+    assert!(planned.changes.records.is_empty());
+    assert_eq!(
+        planned.changes.settings,
+        vec![Setting { name: "Column beside the track name".into(), now: "Comments".into(), becomes: "BPM".into() }]
+    );
+    stick.sync();
+    assert!(!plan(stick.mount()).unwrap().changes.any());
 }
 
 #[test]

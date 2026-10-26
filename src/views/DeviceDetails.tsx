@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { LoaderCircle } from "lucide-react";
 import type { Counts, Device } from "@/ipc/types";
 import type { PlanState } from "@/store/useDevices";
 import { Button } from "@/components/controls";
 import { formatBytes, formatCount } from "@/lib/format";
-import { COUNT_ROWS, anyChange, describeCounts, describeTables, syncNotes } from "@/lib/changes";
+import { COUNT_ROWS, anyChange, changeRows, syncNotes } from "@/lib/changes";
 import styles from "./SyncPane.module.css";
 
 function Delta({ want, now }: { want: number; now: number | undefined }) {
@@ -104,21 +104,20 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
         {facts}
       </div>
       <div>
-        <h5 className={styles.sectionHeading}>What a sync changes</h5>
-        <dl className={styles.changeList}>
-          {[
-            { label: "Tracks", changed: changes.tracksAdded + changes.tracksUpdated + changes.tracksRemoved > 0,
-              text: describeCounts(changes.tracksAdded, changes.tracksUpdated, changes.tracksRemoved) },
-            { label: "Playlists and folders", changed: changes.playlistsAdded + changes.playlistsUpdated + changes.playlistsRemoved > 0,
-              text: describeCounts(changes.playlistsAdded, changes.playlistsUpdated, changes.playlistsRemoved) },
-            { label: "export.pdb", changed: changes.tables.length > 0, text: describeTables(changes) },
-            { label: "My Tags", changed: changes.myTags, text: changes.myTags ? "exportExt.pdb rewritten" : "Left as it is" },
-            { label: "OneLibrary", changed: false, text: "Read only, never changed" },
-          ].map(line => <Fragment key={line.label}>
-            <dt data-changed={line.changed || undefined}>{line.label}</dt>
-            <dd data-changed={line.changed || undefined}>{line.text}</dd>
-          </Fragment>)}
-        </dl>
+        <table className={styles.changeTable} aria-label="What a sync changes">
+          <thead><tr>
+            <th scope="col">What a sync changes</th>
+            <th scope="col">OneLibrary</th>
+            <th scope="col"><span aria-hidden="true">→ </span>Device Library</th>
+          </tr></thead>
+          <tbody>
+            {changeRows(plan.plan).map(row => <tr key={row.label} data-changed={row.change ? true : undefined}>
+              <th scope="row">{row.label}</th>
+              <td>{row.oneLibrary}</td>
+              <td>{row.deviceLibrary}{row.change ? <small>{row.change}</small> : null}</td>
+            </tr>)}
+          </tbody>
+        </table>
         {notes.map(note => <p key={note} className={styles.partialNote}>{note}</p>)}
         <div className={styles.restoreActions} ref={actions}>
           <p role="status">{blocked || (changed ? "" : "The Device Library already holds what the OneLibrary holds.")}</p>

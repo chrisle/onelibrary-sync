@@ -1,4 +1,4 @@
-import type { Changes, Counts, Table } from "@/ipc/types";
+import type { Changes, Counts, Plan, Table } from "@/ipc/types";
 
 /** The rows of the comparison, in the order people check them. */
 export const COUNT_ROWS = [
@@ -49,15 +49,54 @@ export function describeTables(changes: Changes): string {
   return `${changes.tables.length} of ${PDB_TABLES} tables rewritten: ${names.join(", ")}`;
 }
 
-/** The changes, as the confirmation lists them. */
-export function summarize(changes: Changes): string[] {
-  const lines = [
-    `Tracks: ${describeCounts(changes.tracksAdded, changes.tracksUpdated, changes.tracksRemoved)}`,
-    `Playlists and folders: ${describeCounts(changes.playlistsAdded, changes.playlistsUpdated, changes.playlistsRemoved)}`,
-    `export.pdb: ${describeTables(changes)}`,
+/** The lists besides tracks and playlists, as the comparison names them. */
+const RECORDS: Partial<Record<Table, { label: string; key: keyof Counts }>> = {
+  artists: { label: "Artists", key: "artists" }, albums: { label: "Albums", key: "albums" }, genres: { label: "Genres", key: "genres" },
+  labels: { label: "Labels", key: "labels" }, keys: { label: "Keys", key: "keys" }, artwork: { label: "Artwork images", key: "artwork" },
+};
+
+/**
+ * A line of what a sync changes: what the OneLibrary has on the left, what
+ * the Device Library has now on the right, and what the sync does to it.
+ */
+export interface ChangeRow {
+  label: string;
+  oneLibrary: string;
+  deviceLibrary: string;
+  /** What the sync does to the Device Library; "" when it leaves it. */
+  change: string;
+}
+
+type Side = Pick<Plan, "oneLibrary" | "deviceLibrary" | "changes">;
+
+/** What a sync changes, line by line. Lists and settings that stay as they are are left out. */
+export function changeRows(plan: Side): ChangeRow[] {
+  const { oneLibrary: one, deviceLibrary: device, changes } = plan;
+  const count = (counts: Counts | null, key: keyof Counts | "playlistsAndFolders") => {
+    if (!counts) return "—";
+    return (key === "playlistsAndFolders" ? counts.playlists + counts.folders : counts[key]).toLocaleString();
+  };
+  const counted = (label: string, key: keyof Counts | "playlistsAndFolders", added: number, updated: number, removed: number): ChangeRow => ({
+    label, oneLibrary: count(one, key), deviceLibrary: count(device, key),
+    change: added + updated + removed > 0 ? describeCounts(added, updated, removed) : "",
+  });
+  return [
+    counted("Tracks", "tracks", changes.tracksAdded, changes.tracksUpdated, changes.tracksRemoved),
+    counted("Playlists and folders", "playlistsAndFolders", changes.playlistsAdded, changes.playlistsUpdated, changes.playlistsRemoved),
+    ...changes.records.flatMap(r => {
+      const named = RECORDS[r.table];
+      return named ? [counted(named.label, named.key, r.added, r.updated, r.removed)] : [];
+    }),
+    ...changes.settings.map(s => ({ label: s.name, oneLibrary: s.becomes || "None", deviceLibrary: s.now || "None", change: `Becomes ${s.becomes || "None"}` })),
+    { label: "My Tags", oneLibrary: count(one, "myTags"), deviceLibrary: count(device, "myTags"), change: changes.myTags ? "exportExt.pdb rewritten" : "" },
+    { label: "Files", oneLibrary: "exportLibrary.db, only read", deviceLibrary: device ? "export.pdb" : "None yet",
+      change: changes.tables.length > 0 ? describeTables(changes) : "" },
   ];
-  if (changes.myTags) lines.push("My Tags: exportExt.pdb rewritten");
-  return lines;
+}
+
+/** The changes, as the confirmation lists them. */
+export function summarize(plan: Side): string[] {
+  return changeRows(plan).filter(row => row.change).map(row => `${row.label}: ${row.change}`);
 }
 
 /** What a sync does that people should know before agreeing to it. */

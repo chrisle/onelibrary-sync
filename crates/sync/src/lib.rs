@@ -166,6 +166,32 @@ pub struct Changes {
     pub rebuilt: bool,
     /// `exportExt.pdb`, the My Tags, is written.
     pub my_tags: bool,
+    /// The artists, albums, genres, labels, keys and artwork that change.
+    pub records: Vec<Records>,
+    /// The settings that change, such as the column beside the track name.
+    /// Empty when `export.pdb` is created.
+    pub settings: Vec<Setting>,
+}
+
+/// How a list of the Device Library changes.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Records {
+    pub table: Table,
+    pub added: usize,
+    pub updated: usize,
+    pub removed: usize,
+}
+
+/// A setting of the Device Library that a sync changes.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Setting {
+    pub name: String,
+    /// What the Device Library has now.
+    pub now: String,
+    /// What it has after the sync: the `OneLibrary`'s.
+    pub becomes: String,
 }
 
 impl Changes {
@@ -298,14 +324,7 @@ fn changes(update: Option<&device::Update>, my_tags: bool) -> Changes {
     out.rebuilt = update.rebuilt && update.before.is_some();
     let empty = device::Contents::default();
     let (before, after) = (update.before.as_ref().unwrap_or(&empty), &update.after);
-    for (id, track) in &after.tracks {
-        match before.tracks.get(id) {
-            None => out.tracks_added += 1,
-            Some(was) if was != track => out.tracks_updated += 1,
-            Some(_) => {}
-        }
-    }
-    out.tracks_removed = before.tracks.keys().filter(|id| !after.tracks.contains_key(id)).count();
+    (out.tracks_added, out.tracks_updated, out.tracks_removed) = differ(&before.tracks, &after.tracks);
     // Folders count with the playlists: a folder made on a player is as
     // much the stick's as a playlist.
     let lists = |c: &device::Contents| -> std::collections::BTreeMap<u32, (device::Node, Vec<u32>)> {
@@ -314,16 +333,41 @@ fn changes(update: Option<&device::Update>, my_tags: bool) -> Changes {
             .map(|(id, n)| (*id, (n.clone(), c.entries.get(id).cloned().unwrap_or_default())))
             .collect()
     };
-    let (was, now) = (lists(before), lists(after));
-    for (id, list) in &now {
-        match was.get(id) {
-            None => out.playlists_added += 1,
-            Some(old) if old != list => out.playlists_updated += 1,
-            Some(_) => {}
-        }
+    (out.playlists_added, out.playlists_updated, out.playlists_removed) = differ(&lists(before), &lists(after));
+    let records = [
+        (Table::Artists, differ(&before.artists, &after.artists)),
+        (Table::Albums, differ(&before.albums, &after.albums)),
+        (Table::Genres, differ(&before.genres, &after.genres)),
+        (Table::Labels, differ(&before.labels, &after.labels)),
+        (Table::Keys, differ(&before.keys, &after.keys)),
+        (Table::Artwork, differ(&before.artwork, &after.artwork)),
+    ];
+    out.records = records
+        .into_iter()
+        .filter(|(_, counts)| *counts != (0, 0, 0))
+        .map(|(table, (added, updated, removed))| Records { table, added, updated, removed })
+        .collect();
+    if let Some(before) = &update.before {
+        out.settings = before
+            .settings()
+            .into_iter()
+            .zip(after.settings())
+            .filter(|((_, now), (_, becomes))| now != becomes)
+            .map(|((name, now), (_, becomes))| Setting { name: name.to_owned(), now, becomes })
+            .collect();
     }
-    out.playlists_removed = was.keys().filter(|id| !now.contains_key(id)).count();
     out
+}
+
+/// How many entries `after` adds to `before`, changes and takes away.
+fn differ<T: PartialEq>(
+    before: &std::collections::BTreeMap<u32, T>,
+    after: &std::collections::BTreeMap<u32, T>,
+) -> (usize, usize, usize) {
+    let added = after.keys().filter(|id| !before.contains_key(id)).count();
+    let updated = after.iter().filter(|(id, value)| before.get(id).is_some_and(|was| was != *value)).count();
+    let removed = before.keys().filter(|id| !after.contains_key(id)).count();
+    (added, updated, removed)
 }
 
 /// The artwork paths for the Device Library.

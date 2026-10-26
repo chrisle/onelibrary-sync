@@ -135,10 +135,13 @@
 .state[data-state="changes"] { color: var(--c-label-yellow); }
 .state[data-state="failed"] { color: var(--c-error); }
 .state[data-state="none"], .state[data-state="checking"] { color: var(--c-text-dim); }
-.changeList { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0; }
-.changeList dt, .changeList dd { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--c-raised); line-height: 1.45; }
-.changeList dt { padding-right: 16px; color: var(--c-text-dim); white-space: nowrap; }
-.changeList dd { color: var(--c-text); overflow-wrap: anywhere; }
+.changeTable { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.changeTable th, .changeTable td { padding: 5px 12px 5px 0; border-bottom: 1px solid var(--c-raised); text-align: left; vertical-align: top; font-weight: 400; line-height: 1.45; overflow-wrap: anywhere; }
+.changeTable thead th { width: 32%; color: var(--c-text-dim); }
+.changeTable thead th:first-child { width: 36%; }
+.changeTable thead th:first-child { color: var(--c-text); font-weight: 600; }
+.changeTable th[scope="row"] { color: var(--c-text-dim); }
+.changeTable small { display: block; margin-top: 2px; font-size: 11px; }
 /* What a sync changes, in the colour the comparison marks differences in. */
-.changeList [data-changed] { color: var(--c-label-yellow); }
+.changeTable [data-changed] th, .changeTable [data-changed] td:last-child { color: var(--c-label-yellow); }
 .own { color: var(--c-text-dim); }
