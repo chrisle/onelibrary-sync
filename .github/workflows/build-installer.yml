@@ -135,6 +135,17 @@ jobs:
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           node scripts/sync-version.mjs --version "$version"
 
+      - name: Require the update signing key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+            [ -n "${!name:-}" ] || { echo "::error::$name is missing"; exit 1; }
+          done
+
       - name: Require Apple signing credentials
         if: runner.os == 'macOS'
         shell: bash
@@ -261,6 +272,9 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_CORE_ENCRYPT_TOKEN_CACHE: "false"
+          # Signs the update bundles the app checks against its public key.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           CI: "true"
           TAURI_BUNDLER_DMG_IGNORE_CI: "false"
           APPIMAGE_EXTRACT_AND_RUN: "1"
@@ -285,24 +299,43 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
+          # The installers, and the update bundles with their signatures: on
+          # macOS the app as a tarball, elsewhere the installer itself.
           find "${CARGO_TARGET_DIR:-target}/${{ inputs.target }}/release/bundle" -type f ! -name 'rw.*' \
-            \( -path '*/bundle/dmg/*.dmg' -o -path '*/bundle/nsis/*-setup.exe' \
-               -o -path '*/bundle/appimage/*.AppImage' -o -path '*/bundle/deb/*.deb' \) \
+            \( -path '*/bundle/dmg/*.dmg' \
+               -o -path '*/bundle/macos/*.app.tar.gz' -o -path '*/bundle/macos/*.app.tar.gz.sig' \
+               -o -path '*/bundle/nsis/*-setup.exe' -o -path '*/bundle/nsis/*-setup.exe.sig' \
+               -o -path '*/bundle/appimage/*.AppImage' -o -path '*/bundle/appimage/*.AppImage.sig' \
+               -o -path '*/bundle/deb/*.deb' -o -path '*/bundle/deb/*.deb.sig' \) \
             -exec cp {} out/ \; 2>/dev/null || true
 
           count="$(find out -type f | wc -l | tr -d ' ')"
           [ "$count" -gt 0 ] || { echo "::error::no installer was produced"; exit 1; }
           for f in out/*; do
             case "$f" in
-              *.dmg)       want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.dmg" ;;
-              *-setup.exe) want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}-setup.exe" ;;
-              *.AppImage)  want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.AppImage" ;;
-              *.deb)       want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.deb" ;;
+              *.dmg)            want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.dmg" ;;
+              *.app.tar.gz)     want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.app.tar.gz" ;;
+              *.app.tar.gz.sig) want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.app.tar.gz.sig" ;;
+              *-setup.exe)      want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}-setup.exe" ;;
+              *-setup.exe.sig)  want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}-setup.exe.sig" ;;
+              *.AppImage)       want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.AppImage" ;;
+              *.AppImage.sig)   want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.AppImage.sig" ;;
+              *.deb)            want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.deb" ;;
+              *.deb.sig)        want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.deb.sig" ;;
               *) echo "::error::unexpected bundle $f"; exit 1 ;;
             esac
             [ "$f" = "$want" ] || mv "$f" "$want"
           done
           ls -l out
+
+          # Each platform's update bundle must be signed, or installed copies
+          # cannot take it.
+          case "${{ inputs.slug }}" in
+            darwin-*)  sig="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.app.tar.gz.sig" ;;
+            windows-*) sig="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}-setup.exe.sig" ;;
+            linux-*)   sig="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.AppImage.sig" ;;
+          esac
+          [ -s "$sig" ] || { echo "::error::no update signature at $sig"; exit 1; }
 
       - name: Notarize and staple the disk image
         if: runner.os == 'macOS'
