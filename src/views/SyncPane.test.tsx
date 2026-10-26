@@ -53,13 +53,20 @@ it("lists each USB with what a sync would do to it", async () => {
   expect(host.textContent).toContain("Playlists and folders that only the Device Library has");
 });
 
-it("syncs the USB the plan was read from and reads it again after", async () => {
+const box = (name: string) => row(name)?.querySelector<HTMLInputElement>("input[type=checkbox]");
+const syncButton = () => buttons("Sync")[0];
+
+it("syncs the ticked USB with Sync at the bottom and reads it again after", async () => {
   const start = vi.spyOn(held.backend, "startSync");
   await act(async () => { root.render(<SyncPane />); });
   await settle();
-  const sync = row("DJ STICK")?.querySelector<HTMLButtonElement>("button:not([aria-expanded])");
-  expect(sync?.textContent).toBe("Sync");
-  await act(async () => { sync?.click(); });
+  // Sync sits under the list, not in each row, and waits for a tick.
+  expect(buttons("Sync")).toHaveLength(1);
+  expect(row("DJ STICK")?.querySelector("button:not([aria-expanded]):not([aria-label^=Eject])")).toBeNull();
+  expect(syncButton()?.disabled).toBe(true);
+  await act(async () => { box("DJ STICK")?.click(); });
+  expect(syncButton()?.disabled).toBe(false);
+  await act(async () => { syncButton()?.click(); });
   await act(async () => { await vi.advanceTimersByTimeAsync(500); });
   expect(start).toHaveBeenCalledWith("/Volumes/DJ STICK", expect.objectContaining({ files: expect.any(Array) }));
   // The row's space gives way to the sync's step while it runs.
@@ -72,33 +79,36 @@ it("syncs the USB the plan was read from and reads it again after", async () => 
   expect(row("DJ STICK")?.textContent).toContain("In sync");
 });
 
-it("does not sync a USB that is already in sync", async () => {
+it("ejects each USB from an icon in its row", async () => {
+  const eject = vi.spyOn(held.backend, "ejectDevice");
   await act(async () => { root.render(<SyncPane />); });
   await settle();
-  expect(row("WARMUP")?.querySelector<HTMLButtonElement>("button:not([aria-expanded])")?.disabled).toBe(true);
-  expect(buttons("Eject")).toHaveLength(4);
+  const ejects = [...host.querySelectorAll<HTMLButtonElement>("button[aria-label^='Eject ']")];
+  expect(ejects).toHaveLength(4);
+  expect(ejects.every(button => button.querySelector("svg") && button.textContent === "")).toBe(true);
+  await act(async () => { row("WARMUP")?.querySelector<HTMLButtonElement>("button[aria-label='Eject WARMUP']")?.click(); });
+  await settle();
+  expect(eject).toHaveBeenCalledWith("/Volumes/WARMUP");
+  expect(row("WARMUP")).toBeUndefined();
 });
 
-it("syncs the chosen USBs side by side with Sync all", async () => {
+it("syncs the ticked USBs side by side", async () => {
   const start = vi.spyOn(held.backend, "startSync");
   await act(async () => { root.render(<SyncPane />); });
   await settle();
-  const box = (name: string) => row(name)?.querySelector<HTMLInputElement>("input[type=checkbox]");
-  // A USB already in sync can be chosen too; only one without a OneLibrary cannot.
+  // A USB already in sync can be ticked too; only one without a OneLibrary cannot.
   expect(box("WARMUP")?.disabled).toBe(false);
   expect(box("SAMSUNG T7")?.disabled).toBe(true);
-  expect(buttons("Sync all")).toHaveLength(0);
   await act(async () => { box("DJ STICK")?.click(); });
   await act(async () => { box("TOUR USB")?.click(); });
   await act(async () => { box("WARMUP")?.click(); });
-  expect(buttons("Sync all")).toHaveLength(1);
-  await act(async () => { buttons("Sync all")[0]?.click(); });
+  await act(async () => { syncButton()?.click(); });
   await act(async () => { await vi.advanceTimersByTimeAsync(500); });
   expect(start).toHaveBeenCalledTimes(3);
   expect(row("DJ STICK")?.textContent).toMatch(/Syncing…/);
   expect(row("TOUR USB")?.textContent).toMatch(/Syncing…/);
   expect(host.textContent).toContain("Keep DJ STICK, TOUR USB and WARMUP connected");
-  expect(buttons("Sync all")).toHaveLength(0);
+  expect(syncButton()?.disabled).toBe(true);
   await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
   await settle();
   expect(host.textContent).toContain("DJ STICK synced.");
@@ -106,4 +116,22 @@ it("syncs the chosen USBs side by side with Sync all", async () => {
   expect(host.textContent).toContain("WARMUP was already in sync.");
   expect(row("DJ STICK")?.textContent).toContain("In sync");
   expect(row("TOUR USB")?.textContent).toContain("In sync");
+});
+
+it("ejects the synced USBs when Eject when done is ticked", async () => {
+  const eject = vi.spyOn(held.backend, "ejectDevice");
+  await act(async () => { root.render(<SyncPane />); });
+  await settle();
+  await act(async () => { box("DJ STICK")?.click(); });
+  await act(async () => { box("TOUR USB")?.click(); });
+  await act(async () => { host.querySelector<HTMLInputElement>("input[aria-label='Eject when done']")?.click(); });
+  await act(async () => { syncButton()?.click(); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+  await settle();
+  expect(eject).toHaveBeenCalledWith("/Volumes/DJ STICK");
+  expect(eject).toHaveBeenCalledWith("/Volumes/TOUR USB");
+  expect(host.textContent).toContain("DJ STICK synced. Players that read the Device Library now see what its OneLibrary holds. It was ejected and can be unplugged.");
+  expect(row("DJ STICK")).toBeUndefined();
+  expect(row("TOUR USB")).toBeUndefined();
+  expect(row("WARMUP")).toBeDefined();
 });

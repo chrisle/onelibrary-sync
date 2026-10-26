@@ -56,6 +56,15 @@ function append(line: string, text: string): string {
   return line ? `${line} ${text}` : text;
 }
 
+/** ⏏, drawn as lucide draws its icons; lucide has none for eject. */
+function EjectIcon() {
+  return <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 14 12 6l7 8Z" />
+    <path d="M5 18h14" />
+  </svg>;
+}
+
 export function SyncPane() {
   const { status } = useStatus();
   const { devices, plans, loading, error: listError, reload, recheck } = useDevices();
@@ -64,7 +73,10 @@ export function SyncPane() {
   const [message, setMessage] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [chosen, setChosen] = useState<ReadonlySet<string>>(() => new Set());
+  const [ejectWhenDone, setEjectWhenDone] = useState(false);
   const running = useRef(false);
+  // The USBs to eject once their sync finishes, as Eject when done stood when each started.
+  const ejectAfter = useRef(new Set<string>());
   // Kept after a USB goes, so a sync's end can still name it.
   const names = useRef(new Map<string, string>());
   for (const device of devices) names.current.set(device.path, device.name);
@@ -72,11 +84,22 @@ export function SyncPane() {
   // USBs syncing side by side can finish together, so each one's outcome is
   // added to the line rather than replacing another's.
   const job = useSyncJobs(useCallback((progress: SyncProgress) => {
-    const done = finishedMessage(progress, nameIn(names.current, progress.path));
-    if (done.failed) setError(line => append(line, done.text)); else setMessage(line => append(line, done.text));
-    // The Device Library has changed, or the USB did; read it again.
-    if (progress.path) recheck(progress.path);
-  }, [recheck]));
+    const { path } = progress;
+    const name = nameIn(names.current, path);
+    const done = finishedMessage(progress, name);
+    // A USB that failed stays connected, so it can be synced again.
+    const eject = path !== null && ejectAfter.current.delete(path) && !done.failed;
+    if (done.failed) setError(line => append(line, done.text));
+    else if (!eject) setMessage(line => append(line, done.text));
+    if (eject) {
+      void getBackend().then(b => b.ejectDevice(path)).then(
+        () => { setMessage(line => append(line, `${done.text} It was ejected and can be unplugged.`)); void reload(); },
+        (e: unknown) => { setError(line => append(line, `${done.text} It could not be ejected: ${errorMessage(e)}`)); recheck(path); });
+    } else if (path) {
+      // The Device Library has changed, or the USB did; read it again.
+      recheck(path);
+    }
+  }, [recheck, reload]));
   const syncing = (path: string) => job.jobs.get(path)?.running ?? false;
   const syncingNames = [...job.jobs.values()].filter(progress => progress.running).map(progress => nameIn(names.current, progress.path));
 
@@ -105,8 +128,12 @@ export function SyncPane() {
       for (const { device } of starting) next.delete(device.path);
       return next;
     });
+    for (const { device } of starting) {
+      if (ejectWhenDone) ejectAfter.current.add(device.path); else ejectAfter.current.delete(device.path);
+    }
     void run("", async () => {
       const results = await Promise.allSettled(starting.map(({ device, plan }) => job.start(device.path, plan.fingerprint)));
+      results.forEach((result, i) => { if (result.status === "rejected") ejectAfter.current.delete(starting[i]?.device.path ?? ""); });
       const refused = results.flatMap((result, i) => result.status === "rejected"
         ? [starting.length === 1 ? errorMessage(result.reason) : `${starting[i]?.device.name}: ${errorMessage(result.reason)}`] : []);
       if (refused.length > 0) throw new Error(refused.join(" "));
@@ -140,11 +167,7 @@ export function SyncPane() {
 
     <div className={styles.listHeading}>
       <h4 className={styles.sectionHeading}>Connected USBs</h4>
-      <div className={styles.actions}>
-        {toSync.length > 0 ? <Button className={styles.backupButton} disabled={unavailable || blocked !== ""}
-          label={`Sync all ${toSync.length} chosen USBs`} onClick={() => syncEach(toSync)}>Sync all</Button> : null}
-        <Button className={styles.backupButton} disabled={loading} onClick={() => { setMessage(""); void reload(); }}>Refresh</Button>
-      </div>
+      <Button className={styles.backupButton} disabled={loading} onClick={() => { setMessage(""); void reload(); }}>Refresh</Button>
     </div>
     {loading ? <p className={styles.status} role="status">Looking for USBs…</p> : null}
     {!loading && devices.length === 0 ? <div className={styles.empty}>
@@ -152,7 +175,7 @@ export function SyncPane() {
       <p>Connect a USB that holds a OneLibrary. It is listed here as soon as it is mounted.</p>
     </div> : null}
     {devices.length > 0 ? <div className={styles.tableScroll}><table className={styles.table} aria-label="Connected USBs">
-      <thead><tr><th><span hidden>Details</span></th><th><span hidden>Choose</span></th><th>Name</th><th>Space</th><th>Tracks</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th><span hidden>Details</span></th><th><span hidden>Choose</span></th><th>Name</th><th>Space</th><th>Tracks</th><th>Status</th><th><span hidden>Eject</span></th></tr></thead>
       <tbody>{devices.map(device => {
         const open = expanded.has(device.path);
         const plan = plans.get(device.path);
@@ -161,7 +184,6 @@ export function SyncPane() {
         const used = device.totalBytes > 0 ? (device.totalBytes - device.freeBytes) / device.totalBytes : 0;
         const running = syncing(device.path);
         const canSync = syncable(device) !== null;
-        const needsSync = canSync && ready !== null && anyChange(ready.changes);
         return <Fragment key={device.path}>
           <tr className={styles.row} data-expanded={open || undefined} onClick={() => toggle(device.path)}>
             <td>
@@ -182,13 +204,12 @@ export function SyncPane() {
             </div> : <span className={styles.dim}>—</span>}</td>
             <td className={styles.size}>{ready ? formatCount(ready.oneLibrary.tracks) : <span className={styles.dim}>—</span>}</td>
             <td className={styles.state} data-state={running ? "syncing" : state.state}>{running ? "Syncing…" : state.text}</td>
-            <td onClick={event => event.stopPropagation()}><div className={styles.actions}>
-              <Button className={styles.backupButton} disabled={unavailable || blocked !== "" || !needsSync}
-                onClick={() => sync(device)}>Sync</Button>
-              <Button className={`${styles.backupButton} ${styles.deleteButton}`} disabled={unavailable || running} onClick={() => void run(`Ejecting ${device.name}…`, async b => {
-                await b.ejectDevice(device.path); await reload(); return `${device.name} was ejected. It can be unplugged.`;
-              })}>Eject</Button>
-            </div></td>
+            <td onClick={event => event.stopPropagation()}>
+              <button type="button" className={styles.ejectButton} disabled={unavailable || running} aria-label={`Eject ${device.name}`} title="Eject"
+                onClick={() => void run(`Ejecting ${device.name}…`, async b => {
+                  await b.ejectDevice(device.path); await reload(); return `${device.name} was ejected. It can be unplugged.`;
+                })}><EjectIcon /></button>
+            </td>
           </tr>
           {open ? <tr className={styles.detailsRow}><td colSpan={7}>
             <DeviceDetails device={device} plan={plan} blocked={blockedReason(status, running)}
@@ -202,5 +223,13 @@ export function SyncPane() {
         </Fragment>;
       })}</tbody>
     </table></div> : null}
+    {devices.length > 0 ? <div className={styles.syncFooter}>
+      <label className={styles.ejectChoice}>
+        <Checkbox checked={ejectWhenDone} onChange={setEjectWhenDone} label="Eject when done" />
+        <span aria-hidden="true">Eject when done</span>
+      </label>
+      <Button className={styles.backupButton} disabled={toSync.length === 0 || unavailable || blocked !== ""}
+        onClick={() => syncEach(toSync)}>Sync</Button>
+    </div> : null}
   </Section>;
 }

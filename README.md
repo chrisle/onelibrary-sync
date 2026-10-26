@@ -19,11 +19,13 @@ licensed GPL-2.0-or-later.
 - Opening a USB (the arrow) shows what its two libraries hold side by side:
   tracks, playlists, folders, artists, albums, genres, labels, keys, artwork
   and My Tags, with differences highlighted, and what a sync would change.
-- **Sync** syncs one way, from the OneLibrary to the Device Library, without
-  asking again. The OneLibrary is only read.
-- Ticking the box beside several USBs shows **Sync all**, which syncs them at
-  the same time.
-- **Eject** hands the USB back to the system so it can be unplugged.
+- Tick the box beside each USB to sync and press **Sync** under the list. The
+  ticked USBs sync at the same time, one way, from the OneLibrary to the Device
+  Library, without asking again. The OneLibrary is only read.
+- With **Eject when done** ticked, each USB that synced is ejected as soon as
+  it finishes. One whose sync failed stays connected.
+- The eject icon in a USB's row hands it back to the system so it can be
+  unplugged.
 
 Only the USB is read and written. The rekordbox library on the computer is
 never opened.
