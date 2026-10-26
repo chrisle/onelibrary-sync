@@ -18,7 +18,7 @@ export const COUNT_ROWS = [
 export const TABLE_NAMES: Record<Table, string> = {
   tracks: "tracks", genres: "genres", artists: "artists", albums: "albums", labels: "labels", keys: "keys",
   colors: "colour names", playlists: "playlist tree", playlistEntries: "playlist contents", artwork: "artwork",
-  columns: "browse columns", categories: "browse categories", sorts: "sort options", property: "device name and track count",
+  columns: "browse columns", categories: "browse categories", sorts: "sort options and the column beside the track name", property: "device name and track count",
 };
 
 /** export.pdb holds twenty tables; this many are the sync's. */

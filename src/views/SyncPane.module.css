@@ -139,4 +139,6 @@
 .changeList dt, .changeList dd { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--c-raised); line-height: 1.45; }
 .changeList dt { padding-right: 16px; color: var(--c-text-dim); white-space: nowrap; }
 .changeList dd { color: var(--c-text); overflow-wrap: anywhere; }
+/* What a sync changes, in the colour the comparison marks differences in. */
+.changeList [data-changed] { color: var(--c-label-yellow); }
 .own { color: var(--c-text-dim); }

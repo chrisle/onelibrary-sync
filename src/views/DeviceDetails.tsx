@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { LoaderCircle } from "lucide-react";
 import type { Counts, Device } from "@/ipc/types";
 import type { PlanState } from "@/store/useDevices";
@@ -106,11 +106,18 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
       <div>
         <h5 className={styles.sectionHeading}>What a sync changes</h5>
         <dl className={styles.changeList}>
-          <dt>Tracks</dt><dd>{describeCounts(changes.tracksAdded, changes.tracksUpdated, changes.tracksRemoved)}</dd>
-          <dt>Playlists and folders</dt><dd>{describeCounts(changes.playlistsAdded, changes.playlistsUpdated, changes.playlistsRemoved)}</dd>
-          <dt>export.pdb</dt><dd>{describeTables(changes)}</dd>
-          <dt>My Tags</dt><dd>{changes.myTags ? "exportExt.pdb rewritten" : "Left as it is"}</dd>
-          <dt>OneLibrary</dt><dd>Read only, never changed</dd>
+          {[
+            { label: "Tracks", changed: changes.tracksAdded + changes.tracksUpdated + changes.tracksRemoved > 0,
+              text: describeCounts(changes.tracksAdded, changes.tracksUpdated, changes.tracksRemoved) },
+            { label: "Playlists and folders", changed: changes.playlistsAdded + changes.playlistsUpdated + changes.playlistsRemoved > 0,
+              text: describeCounts(changes.playlistsAdded, changes.playlistsUpdated, changes.playlistsRemoved) },
+            { label: "export.pdb", changed: changes.tables.length > 0, text: describeTables(changes) },
+            { label: "My Tags", changed: changes.myTags, text: changes.myTags ? "exportExt.pdb rewritten" : "Left as it is" },
+            { label: "OneLibrary", changed: false, text: "Read only, never changed" },
+          ].map(line => <Fragment key={line.label}>
+            <dt data-changed={line.changed || undefined}>{line.label}</dt>
+            <dd data-changed={line.changed || undefined}>{line.text}</dd>
+          </Fragment>)}
         </dl>
         {notes.map(note => <p key={note} className={styles.partialNote}>{note}</p>)}
         <div className={styles.restoreActions} ref={actions}>
