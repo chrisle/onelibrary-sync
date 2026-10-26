@@ -46,8 +46,8 @@ it("lists each USB with what a sync would do to it", async () => {
   expect(details?.textContent).toContain("1,843");
   expect(host.textContent).toContain("34 added, 6 updated and 3 removed");
   expect(host.textContent).toContain("8 of 20 tables rewritten");
-  const sortRow = [...host.querySelectorAll("[aria-label='What a sync changes'] tr")].find(r => r.textContent?.startsWith("Column beside"));
-  expect([...sortRow?.children ?? []].map(cell => cell.textContent)).toEqual(["Column beside the track name", "BPM", "CommentsBecomes BPM"]);
+  const sortRow = [...host.querySelectorAll("[aria-label='What each library holds'] tr")].find(r => r.textContent?.startsWith("Column beside"));
+  expect([...sortRow?.children ?? []].map(cell => cell.textContent)).toEqual(["Column beside the track name", "BPM", "Comments"]);
   expect(host.textContent).toContain("Playlists and folders that only the Device Library has");
 });
 

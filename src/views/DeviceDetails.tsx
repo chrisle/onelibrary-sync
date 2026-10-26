@@ -1,36 +1,36 @@
 import { useEffect, useRef } from "react";
 import { LoaderCircle } from "lucide-react";
-import type { Counts, Device } from "@/ipc/types";
+import type { Device, Plan } from "@/ipc/types";
 import type { PlanState } from "@/store/useDevices";
 import { Button } from "@/components/controls";
-import { formatBytes, formatCount } from "@/lib/format";
-import { COUNT_ROWS, anyChange, changeRows, syncNotes } from "@/lib/changes";
+import { formatBytes } from "@/lib/format";
+import { anyChange, comparisonRows, describeFiles, headline, syncNotes, type ComparisonRow } from "@/lib/changes";
 import styles from "./SyncPane.module.css";
 
-function Delta({ want, now }: { want: number; now: number | undefined }) {
-  if (now === undefined) return <td className={styles.dim}>—</td>;
-  const difference = now - want;
-  return <td className={difference === 0 ? undefined : styles.changed}>
-    {formatCount(now)}
-    {difference === 0 ? null : <span className={styles.delta}>{difference > 0 ? "+" : "−"}{formatCount(Math.abs(difference))}</span>}
-  </td>;
-}
-
-function Comparison({ one, legacy }: { one: Counts; legacy: Counts | null }) {
+function Comparison({ plan }: { plan: Plan }) {
+  const rows = comparisonRows(plan);
+  const counts = rows.filter(row => row.kind !== "setting");
+  const settings = rows.filter(row => row.kind === "setting");
+  const line = (row: ComparisonRow) => {
+    const { difference } = row;
+    return <tr key={row.label} data-changed={row.changed || undefined} className={row.kind === "own" ? styles.own : undefined}
+      title={row.kind === "own" ? "Each library keeps the history its players record; it is not synced." : undefined}>
+      <th scope="row">{row.label}</th>
+      <td>{row.oneLibrary}</td>
+      <td>
+        {row.deviceLibrary}
+        {row.change ? <small>{row.change}</small>
+          : difference !== 0 ? <span className={styles.delta}>{difference > 0 ? "+" : "−"}{Math.abs(difference).toLocaleString()}</span> : null}
+      </td>
+    </tr>;
+  };
   return <table className={styles.counts} aria-label="What each library holds">
-    <thead><tr><th scope="col">Library</th><th scope="col">OneLibrary</th><th scope="col">Device Library</th></tr></thead>
-    <tbody>
-      {COUNT_ROWS.map(row => <tr key={row.key}>
-        <th scope="row">{row.label}</th>
-        <td>{formatCount(one[row.key])}</td>
-        <Delta want={one[row.key]} now={legacy?.[row.key]} />
-      </tr>)}
-      <tr className={styles.own} title="Each library keeps the history its players record; it is not synced.">
-        <th scope="row">History playlists</th>
-        <td>{formatCount(one.histories)}</td>
-        <td>{legacy ? formatCount(legacy.histories) : "—"}</td>
-      </tr>
-    </tbody>
+    <thead><tr><th scope="col">Library</th><th scope="col">OneLibrary</th><th scope="col"><span aria-hidden="true">→ </span>Device Library</th></tr></thead>
+    <tbody>{counts.map(line)}</tbody>
+    {settings.length > 0 ? <tbody>
+      <tr className={styles.group}><th scope="rowgroup" colSpan={3}>Settings that differ</th></tr>
+      {settings.map(line)}
+    </tbody> : null}
   </table>;
 }
 
@@ -54,13 +54,14 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
   useEffect(() => {
     if (focus) actions.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [focus]);
-  const facts = <dl className={styles.facts}>
-    <dt>Volume</dt>
-    <dd><button type="button" role="link" className={styles.directoryLink} onClick={onOpen}>{device.path}</button></dd>
-    <dt>Format</dt><dd>{device.fileSystem || "—"}</dd>
-    {device.totalBytes > 0 ? <><dt>Space</dt><dd>{formatBytes(device.freeBytes)} free of {formatBytes(device.totalBytes)}</dd></> : null}
-    {plan?.state === "ready" && plan.plan.deviceName ? <><dt>Device name</dt><dd>{plan.plan.deviceName}</dd></> : null}
-  </dl>;
+  const facts = <p className={styles.facts}>
+    <button type="button" role="link" className={styles.directoryLink} onClick={onOpen}>{device.path}</button>
+    {[
+      device.fileSystem,
+      device.totalBytes > 0 ? `${formatBytes(device.freeBytes)} free of ${formatBytes(device.totalBytes)}` : "",
+      plan?.state === "ready" && plan.plan.deviceName ? `Device name ${plan.plan.deviceName}` : "",
+    ].filter(Boolean).map(fact => <span key={fact}>{fact}</span>)}
+  </p>;
 
   if (!device.hasOneLibrary) {
     return <div className={styles.details}>
@@ -98,37 +99,21 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
   const changed = anyChange(changes);
   const notes = syncNotes(changes, plan.plan.deviceLibrary !== null, plan.plan.missingAudio, plan.plan.missingAnalysis);
   return <div className={styles.details} aria-label={`${device.name} libraries`}>
-    <div className={styles.detailGrid}>
+    <div className={styles.planBar} ref={actions}>
       <div>
-        <Comparison one={plan.plan.oneLibrary} legacy={plan.plan.deviceLibrary} />
-        {facts}
+        <p className={styles.headline} data-changed={changed || undefined}>{headline(plan.plan)}</p>
+        {blocked ? <p className={styles.blockedReason} role="status">{blocked}</p> : null}
       </div>
-      <div>
-        <table className={styles.changeTable} aria-label="What a sync changes">
-          <thead><tr>
-            <th scope="col">What a sync changes</th>
-            <th scope="col">OneLibrary</th>
-            <th scope="col"><span aria-hidden="true">→ </span>Device Library</th>
-          </tr></thead>
-          <tbody>
-            {changeRows(plan.plan).map(row => <tr key={row.label} data-changed={row.change ? true : undefined}>
-              <th scope="row">{row.label}</th>
-              <td>{row.oneLibrary}</td>
-              <td>{row.deviceLibrary}{row.change ? <small>{row.change}</small> : null}</td>
-            </tr>)}
-          </tbody>
-        </table>
-        {notes.map(note => <p key={note} className={styles.partialNote}>{note}</p>)}
-        <div className={styles.restoreActions} ref={actions}>
-          <p role="status">{blocked || (changed ? "" : "The Device Library already holds what the OneLibrary holds.")}</p>
-          <div className={styles.actions}>
-            <Button className={styles.backupButton} onClick={onRecheck}>Check again</Button>
-            <Button className={styles.backupButton} disabled={!changed || blocked !== ""} onClick={onSync}>
-              {changed ? "Sync now…" : "In sync"}
-            </Button>
-          </div>
-        </div>
+      <div className={styles.actions}>
+        <Button className={styles.backupButton} onClick={onRecheck}>Check again</Button>
+        <Button className={styles.backupButton} disabled={!changed || blocked !== ""} onClick={onSync}>
+          {changed ? "Sync now…" : "In sync"}
+        </Button>
       </div>
     </div>
+    <Comparison plan={plan.plan} />
+    {notes.map(note => <p key={note} className={styles.partialNote}>{note}</p>)}
+    {changed ? <p className={styles.files}>{describeFiles(changes)}</p> : null}
+    {facts}
   </div>;
 }
