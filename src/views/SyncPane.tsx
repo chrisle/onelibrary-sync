@@ -88,10 +88,10 @@ export function SyncPane() {
     catch (e) { setError(errorMessage(e)); }
     finally { running.current = false; setBusy(""); }
   };
-  /** The plan a sync of `device` would carry out, if it has something to do and can start. */
+  /** The plan a sync of `device` would carry out, if it can start. One already in sync writes nothing. */
   const syncable = (device: Device) => {
     const plan = plans.get(device.path);
-    return plan?.state === "ready" && anyChange(plan.plan.changes) && !syncing(device.path) ? plan.plan : null;
+    return plan?.state === "ready" && !syncing(device.path) ? plan.plan : null;
   };
   /** Starts each of `picked` side by side; one that cannot start does not hold up the rest. */
   const syncEach = (picked: readonly Device[]) => {
@@ -161,6 +161,7 @@ export function SyncPane() {
         const used = device.totalBytes > 0 ? (device.totalBytes - device.freeBytes) / device.totalBytes : 0;
         const running = syncing(device.path);
         const canSync = syncable(device) !== null;
+        const needsSync = canSync && ready !== null && anyChange(ready.changes);
         return <Fragment key={device.path}>
           <tr className={styles.row} data-expanded={open || undefined} onClick={() => toggle(device.path)}>
             <td>
@@ -182,7 +183,7 @@ export function SyncPane() {
             <td className={styles.size}>{ready ? formatCount(ready.oneLibrary.tracks) : <span className={styles.dim}>—</span>}</td>
             <td className={styles.state} data-state={running ? "syncing" : state.state}>{running ? "Syncing…" : state.text}</td>
             <td onClick={event => event.stopPropagation()}><div className={styles.actions}>
-              <Button className={styles.backupButton} disabled={unavailable || blocked !== "" || !canSync}
+              <Button className={styles.backupButton} disabled={unavailable || blocked !== "" || !needsSync}
                 onClick={() => sync(device)}>Sync</Button>
               <Button className={`${styles.backupButton} ${styles.deleteButton}`} disabled={unavailable || running} onClick={() => void run(`Ejecting ${device.name}…`, async b => {
                 await b.ejectDevice(device.path); await reload(); return `${device.name} was ejected. It can be unplugged.`;
