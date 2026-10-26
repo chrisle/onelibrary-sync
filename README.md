@@ -85,6 +85,14 @@ an interrupted write on the first USB, `?fail=1` fails syncs, `?decline=1`
 answers no to confirmations, `?empty=1` connects nothing and `?late=1`
 connects another USB after a few seconds.
 
+Tests on a real USB stick run by hand, never in CI. They rewrite the stick's
+libraries and put the files back after each test, pass or fail. Use a stick
+whose libraries may be rewritten, and quit rekordbox first:
+
+```sh
+ONELIBRARY_TEST_USB="/Volumes/USB B" cargo test -p onelibrary-sync --test usb -- --ignored
+```
+
 To try the real app on a copy of a USB, set `RB_LITE_FAKE_VOLUMES` to a
 `:`-separated list of folders that stand in for volumes. Two command-line
 examples work on any mounted USB or folder:
