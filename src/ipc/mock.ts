@@ -6,7 +6,7 @@
  * answers no to every confirmation, `?empty=1` connects nothing, and
  * `?late=1` connects another USB a few seconds after the window opens.
  */
-import type { Backend, Changes, Counts, Device, Plan, Status, SyncProgress } from "./types";
+import type { Backend, Changes, Counts, Device, Plan, Stamp, Status, SyncProgress } from "./types";
 
 const GB = 1024 ** 3;
 
@@ -24,6 +24,10 @@ function counts(tracks: number, extra: Partial<Counts> = {}): Counts {
     albums: Math.round(tracks * 0.7), genres: 24, labels: Math.round(tracks * 0.4), keys: 24, artwork: Math.round(tracks * 0.7),
     myTags: 31, histories: 3, ...extra,
   };
+}
+
+function stamp(len: number, modifiedMs: number): Stamp {
+  return { len, modifiedMs, sha256: modifiedMs.toString(16).padStart(64, "0") };
 }
 
 const NONE: Changes = {
@@ -123,7 +127,7 @@ export function createMockBackend(): Backend {
       if (!item.one) return refuse("This USB has no OneLibrary to sync from.");
       if (item.device.interrupted) return refuse("An earlier write to this USB was interrupted. Finish it before syncing.");
       const plan: Plan = {
-        fingerprint: { files: [[126_976, item.stamp], null, item.legacy ? [262_144, item.stamp] : null, null] },
+        fingerprint: { files: [stamp(126_976, item.stamp), null, item.legacy ? stamp(262_144, item.stamp) : null, null] },
         deviceName: item.device.name, oneLibrary: item.one, deviceLibrary: item.legacy, changes: item.changes,
         missingAudio: item.missingAudio, missingAnalysis: item.missingAnalysis,
       };
@@ -135,7 +139,7 @@ export function createMockBackend(): Backend {
       if (!item) return refuse("The USB is no longer connected.");
       if (flag("rekordbox")) return refuse("Quit rekordbox before syncing. It writes to the USBs it sees.");
       if (progress.running) return refuse("A sync is already running.");
-      if (fingerprint.files[0]?.[1] !== item.stamp) return refuse("The USB changed since it was checked. Nothing was changed; check it again and sync.");
+      if (fingerprint.files[0]?.modifiedMs !== item.stamp) return refuse("The USB changed since it was checked. Nothing was changed; check it again and sync.");
       progress = { running: true, phase: "reading", path, error: null, report: null };
       run(item);
       return wait(undefined);

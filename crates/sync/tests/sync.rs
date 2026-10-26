@@ -289,6 +289,24 @@ fn a_stick_that_changed_after_its_plan_is_not_written() {
 }
 
 #[test]
+fn a_write_in_the_same_second_as_the_plan_is_noticed() {
+    let stick = stick(3);
+    stick.sync();
+    let pdb = stick.db_dir().join("export.pdb");
+    let modified = std::fs::metadata(&pdb).unwrap().modified().unwrap();
+    let planned = plan(stick.mount()).unwrap();
+    // A player saves to the stick within the same second, on a file system
+    // that keeps whole seconds (HFS+, FAT): same length, same time.
+    let mut bytes = stick.pdb();
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0xff;
+    std::fs::write(&pdb, &bytes).unwrap();
+    std::fs::File::options().write(true).open(&pdb).unwrap().set_modified(modified).unwrap();
+    assert!(matches!(sync(stick.mount(), &planned.fingerprint, &mut |_| {}), Err(Error::Changed)));
+    assert_eq!(stick.pdb(), bytes);
+}
+
+#[test]
 fn an_interrupted_write_is_reported_and_finished() {
     let stick = stick(3);
     stick.sync();

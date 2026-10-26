@@ -15,6 +15,7 @@ rbl-onelibrary = { path = "../rbl-onelibrary" }
 rbl-pdb = { path = "../rbl-pdb" }
 rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
 serde = { workspace = true }
+sha2 = "0.10"
 thiserror = { workspace = true }
 tracing = { workspace = true }
 unicode-normalization = "0.1"

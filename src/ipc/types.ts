@@ -76,9 +76,15 @@ export interface Setting {
   becomes: string;
 }
 
-/** The USB's database files by size and time, as the plan saw them. */
+/** The USB's database files by size, time and content, as the plan saw them. */
 export interface Fingerprint {
-  files: ([number, number] | null)[];
+  files: (Stamp | null)[];
+}
+
+export interface Stamp {
+  len: number;
+  modifiedMs: number;
+  sha256: string;
 }
 
 /** What a USB holds and what syncing it would do. */

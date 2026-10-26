@@ -100,23 +100,48 @@ pub fn has_device_library(mount: &Path) -> bool {
     ["PIONEER", ".PIONEER"].iter().any(|root| mount.join(root).join("rekordbox/export.pdb").is_file())
 }
 
-/// The files a sync reads, by size and modification time: what tells
-/// whether the stick changed between the plan and the sync.
+/// The files a sync reads, by size, modification time and SHA-256: what
+/// tells whether the stick changed between the plan and the sync.
+///
+/// The content hash is what catches a write of the same length within the
+/// same second: HFS+ keeps whole seconds, FAT two.
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Fingerprint {
-    pub files: Vec<Option<(u64, u64)>>,
+    pub files: Vec<Option<Stamp>>,
 }
 
-fn stamp(path: &Path) -> Result<Option<(u64, u64)>> {
-    match std::fs::metadata(path) {
-        Ok(meta) => {
-            let modified = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok());
-            Ok(Some((meta.len(), modified.map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX)))))
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => Err(e.into()),
-    }
+/// One file of a [`Fingerprint`].
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stamp {
+    pub len: u64,
+    pub modified_ms: u64,
+    /// Hex, so it survives JSON numbers.
+    pub sha256: String,
+}
+
+fn stamp(path: &Path) -> Result<Option<Stamp>> {
+    use sha2::Digest;
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e.into()),
+    };
+    let meta = file.metadata()?;
+    let modified = meta.modified().ok().and_then(|t| t.duration_since(UNIX_EPOCH).ok());
+    let mut hasher = sha2::Sha256::new();
+    std::io::copy(&mut file, &mut hasher)?;
+    let sha256 = hasher.finalize().iter().fold(String::with_capacity(64), |mut hex, b| {
+        use std::fmt::Write;
+        let _ = write!(hex, "{b:02x}");
+        hex
+    });
+    Ok(Some(Stamp {
+        len: meta.len(),
+        modified_ms: modified.map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX)),
+        sha256,
+    }))
 }
 
 fn fingerprint(layout: &Layout) -> Result<Fingerprint> {

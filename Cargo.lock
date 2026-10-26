@@ -2515,6 +2515,7 @@ dependencies = [
  "rbl-pdb",
  "rusqlite",
  "serde",
+ "sha2",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
