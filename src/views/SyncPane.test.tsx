@@ -60,9 +60,14 @@ it("syncs the USB the plan was read from and reads it again after", async () => 
   const sync = row("DJ STICK")?.querySelector<HTMLButtonElement>("button:not([aria-expanded])");
   expect(sync?.textContent).toBe("Sync");
   await act(async () => { sync?.click(); });
-  await settle();
+  await act(async () => { await vi.advanceTimersByTimeAsync(500); });
   expect(start).toHaveBeenCalledWith("/Volumes/DJ STICK", expect.objectContaining({ files: expect.any(Array) }));
+  // The row's space gives way to the sync's step while it runs.
+  expect(row("DJ STICK")?.textContent).toMatch(/Syncing…/);
+  expect(row("DJ STICK")?.textContent).toMatch(/\d of 3/);
+  expect(row("DJ STICK")?.textContent).not.toContain("GB free");
   await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+  await settle();
   expect(host.textContent).toContain("DJ STICK synced.");
   expect(row("DJ STICK")?.textContent).toContain("In sync");
 });

@@ -1,8 +1,5 @@
 /* RBXport's Backups pane (BackupsPane.module.css and PaneLayout.module.css
    in rbxport), as RBXport Restore draws it, with the device rows added. */
-.summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--c-raised); border-radius: 4px; }
-.summary > div { flex: 1; min-width: 200px; }
-.summary button { flex-shrink: 0; }
 .empty { padding: 20px 16px; border: 1px solid var(--c-raised); border-radius: 4px; font-size: var(--f-size-sm); line-height: 1.5; }
 .empty p { margin: 6px 0 0; color: var(--c-text-dim); }
 .notice { margin: 0 0 12px; padding: 10px 12px; border-left: 2px solid var(--c-label-yellow); background: var(--c-raised); font-size: var(--f-size-sm); line-height: 1.5; }
@@ -41,24 +38,14 @@
 .status:empty { display: none; }
 .status[data-done] { color: var(--c-icon-on); }
 
-.activeRestore { padding: 20px; }
-.restoreProgress { width: 100%; min-width: 0; }
-.progressHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
-.percent { color: var(--c-accent); font-size: 20px; font-variant-numeric: tabular-nums; }
-.progressBar { display: block; appearance: none; width: 100%; height: 8px; margin: 16px 0 10px; border: 0; border-radius: 4px; overflow: hidden; background: var(--c-raised); accent-color: var(--c-accent); }
-.progressBar::-webkit-progress-bar { background: var(--c-raised); border-radius: 4px; }
-.progressBar::-webkit-progress-value { background: var(--c-accent); border-radius: 4px; transition: width 300ms ease; }
-.progressBar::-moz-progress-bar { background: var(--c-accent); border-radius: 4px; }
-.progressBar:indeterminate { background: linear-gradient(90deg, var(--c-raised) 0%, var(--c-accent) 50%, var(--c-raised) 100%); background-size: 200% 100%; animation: restore-progress 1.5s linear infinite; }
-.progressBar:indeterminate::-webkit-progress-bar { background: transparent; }
-.progressDetails { color: var(--c-text-dim); font-size: var(--f-size-sm); font-variant-numeric: tabular-nums; }
-.progressFooter { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--c-raised); }
-.progressFooter p { margin: 0; color: var(--c-text-dim); font-size: var(--f-size-sm); line-height: 1.5; }
-.currentItem { margin-top: 8px; color: var(--c-text-dim); font-size: var(--f-size-sm); line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@keyframes restore-progress { to { background-position: -200% 0; } }
+/* A sync's step in a row, drawn like the space bar it stands in for. */
+.syncBar { display: block; appearance: none; width: 100%; height: 4px; border: 0; border-radius: 2px; overflow: hidden; background: var(--c-raised); }
+.syncBar::-webkit-progress-bar { background: var(--c-raised); border-radius: 2px; }
+.syncBar::-webkit-progress-value { background: var(--c-accent); border-radius: 2px; transition: width 300ms ease; }
+.syncBar::-moz-progress-bar { background: var(--c-accent); border-radius: 2px; }
+.row[data-expanded] .syncBar, .row[data-expanded] .syncBar::-webkit-progress-bar { background: var(--c-panel); }
 @media (prefers-reduced-motion: reduce) {
-  .progressBar:indeterminate { animation: none; }
-  .progressBar::-webkit-progress-value { transition: none; }
+  .syncBar::-webkit-progress-value { transition: none; }
   .expander svg { transition: none; }
 }
 
@@ -142,6 +129,7 @@
 .state { white-space: nowrap; }
 .state[data-state="synced"] { color: var(--c-label-green); }
 .state[data-state="changes"] { color: var(--c-label-yellow); }
+.state[data-state="syncing"] { color: var(--c-accent); }
 .state[data-state="failed"] { color: var(--c-error); }
 .state[data-state="none"], .state[data-state="checking"] { color: var(--c-text-dim); }
 .own { color: var(--c-text-dim); }

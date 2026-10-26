@@ -10,7 +10,7 @@ import { useDevices, type PlanState } from "@/store/useDevices";
 import { useStatus } from "@/store/useStatus";
 import { useSyncJob } from "@/store/useSyncJob";
 import { DeviceDetails } from "./DeviceDetails";
-import { SyncProgressCard } from "./SyncProgressCard";
+import { SyncStep } from "./SyncStep";
 import styles from "./SyncPane.module.css";
 
 /** Why a sync cannot start now, or "". */
@@ -93,8 +93,9 @@ export function SyncPane() {
     {status?.rekordboxRunning ? <p className={styles.blockedNotice}>Quit rekordbox before syncing. It writes to the USBs it sees.</p> : null}
     {error || listError ? <p role="alert" className={styles.error}>{error || listError}</p> : null}
 
-    {job.progress.running ? <SyncProgressCard progress={job.progress} name={nameIn(names.current, job.progress.path)} />
-      : <p className={styles.status} role="status" aria-live="polite" data-done={message ? true : undefined}>{busy || message}</p>}
+    <p className={styles.status} role="status" aria-live="polite" data-done={message ? true : undefined}>
+      {job.progress.running ? `Keep ${nameIn(names.current, job.progress.path)} connected and rekordbox closed until the sync finishes.` : busy || message}
+    </p>
 
     <div className={styles.listHeading}>
       <h4 className={styles.sectionHeading}>Connected USBs</h4>
@@ -113,6 +114,7 @@ export function SyncPane() {
         const state = rowState(device, plan);
         const ready = plan?.state === "ready" ? plan.plan : null;
         const used = device.totalBytes > 0 ? (device.totalBytes - device.freeBytes) / device.totalBytes : 0;
+        const syncing = job.progress.running && job.progress.path === device.path;
         return <Fragment key={device.path}>
           <tr className={styles.row} data-expanded={open || undefined} onClick={() => toggle(device.path)}>
             <td>
@@ -122,12 +124,13 @@ export function SyncPane() {
               </button>
             </td>
             <td><div className={styles.deviceName}><span>{device.name}</span><small>{formatFileSystem(device.fileSystem)}</small></div></td>
-            <td>{device.totalBytes > 0 ? <div className={styles.capacity} title={`${formatBytes(device.freeBytes)} free of ${formatBytes(device.totalBytes)}`}>
+            <td>{syncing ? <SyncStep phase={job.progress.phase} />
+              : device.totalBytes > 0 ? <div className={styles.capacity} title={`${formatBytes(device.freeBytes)} free of ${formatBytes(device.totalBytes)}`}>
               <span>{formatBytes(device.freeBytes)} free</span>
               <div className={styles.capacityBar}><span style={{ width: `${Math.round(used * 100)}%` }} /></div>
             </div> : <span className={styles.dim}>—</span>}</td>
             <td className={styles.size}>{ready ? formatCount(ready.oneLibrary.tracks) : <span className={styles.dim}>—</span>}</td>
-            <td className={styles.state} data-state={state.state}>{state.text}</td>
+            <td className={styles.state} data-state={syncing ? "syncing" : state.state}>{syncing ? "Syncing…" : state.text}</td>
             <td onClick={event => event.stopPropagation()}><div className={styles.actions}>
               <Button className={styles.backupButton} disabled={unavailable || blocked !== "" || !ready || !anyChange(ready.changes)}
                 onClick={() => sync(device)}>Sync</Button>
