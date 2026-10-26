@@ -1,5 +1,5 @@
 [package]
-name = "onelibrary-4all"
+name = "onelibrary-sync-app"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 description = "Keeps a USB stick's Device Library in line with its OneLibrary, for players that read only the Device Library."
 
 [lib]
-name = "onelibrary_4all_lib"
+name = "onelibrary_sync_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [lints]

@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn matches_rekordbox_and_its_agent_but_not_their_helpers() {
-        for name in ["rekordbox Helper", "onelibrary-4all", "RBXport", "Finder"] {
+        for name in ["rekordbox Helper", "onelibrary-sync", "RBXport", "Finder"] {
             assert!(!is_rekordbox(name), "{name}");
         }
         assert!(is_rekordbox("rekordbox"));

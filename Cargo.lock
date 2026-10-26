@@ -2486,7 +2486,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "onelibrary-4all"
+name = "onelibrary-sync"
+version = "0.1.0"
+dependencies = [
+ "rbl-core",
+ "rbl-onelibrary",
+ "rbl-pdb",
+ "rusqlite",
+ "serde",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "onelibrary-sync-app"
 version = "0.1.0"
 dependencies = [
  "onelibrary-sync",
@@ -2502,22 +2518,6 @@ dependencies = [
  "tempfile",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "onelibrary-sync"
-version = "0.1.0"
-dependencies = [
- "rbl-core",
- "rbl-onelibrary",
- "rbl-pdb",
- "rusqlite",
- "serde",
- "sha2",
- "tempfile",
- "thiserror 2.0.21",
- "tracing",
- "unicode-normalization",
 ]
 
 [[package]]

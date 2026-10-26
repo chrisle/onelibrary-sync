@@ -155,7 +155,7 @@ export function SyncPane() {
   const blocked = blockedReason(status, false);
   const unavailable = busy !== "";
   const toSync = devices.filter(device => chosen.has(device.path) && syncable(device));
-  return <Section title="OneLibrary 4 All" subtitle={`Version ${__APP_VERSION__}`}>
+  return <Section title="OneLibrary Sync" subtitle={`Version ${__APP_VERSION__}`}>
     {status?.rekordboxRunning ? <p className={styles.blockedNotice}>Quit rekordbox before syncing. It writes to the USBs it sees.</p> : null}
     {error || listError ? <p role="alert" className={styles.error}>{error || listError}</p> : null}
 

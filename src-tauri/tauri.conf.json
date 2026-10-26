@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OneLibrary 4 All",
-  "mainBinaryName": "onelibrary-4all",
+  "productName": "OneLibrary Sync",
+  "mainBinaryName": "onelibrary-sync",
   "version": "0.1.0",
-  "identifier": "com.rbxport.onelibrary4all",
+  "identifier": "com.rbxport.onelibrarysync",
   "build": {
     "beforeDevCommand": "pnpm dev:web",
     "devUrl": "http://localhost:1440",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "OneLibrary 4 All",
+        "title": "OneLibrary Sync",
         "width": 720,
         "height": 480,
         "minWidth": 640,

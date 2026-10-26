@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    onelibrary_4all_lib::run();
+    onelibrary_sync_app_lib::run();
 }

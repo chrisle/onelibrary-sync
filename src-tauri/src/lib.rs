@@ -1,4 +1,4 @@
-//! OneLibrary 4 All: keeps the Device Library on each connected USB stick in
+//! OneLibrary Sync: keeps the Device Library on each connected USB stick in
 //! line with the stick's OneLibrary, so players that read only the Device
 //! Library see the same tracks and playlists. The sync itself is
 //! `onelibrary_sync`'s; this is the window around it.
@@ -44,6 +44,6 @@ pub fn run() {
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {
-        tracing::error!(%error, "OneLibrary 4 All could not start");
+        tracing::error!(%error, "OneLibrary Sync could not start");
     }
 }

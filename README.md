@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="src-tauri/icons/128x128@2x.png" alt="OneLibrary 4 All logo" width="128" height="128">
+  <img src="src-tauri/icons/128x128@2x.png" alt="OneLibrary Sync logo" width="128" height="128">
 </p>
 
-# OneLibrary 4 All
+# OneLibrary Sync
 
-OneLibrary 4 All copies the OneLibrary on a USB stick to the Device Library on
+OneLibrary Sync copies the OneLibrary on a USB stick to the Device Library on
 the same stick, so the stick can be used with older Pioneer DJ equipment that
 reads only the Device Library, such as the CDJ-2000NXS2 and XDJ-1000MK2.
 
@@ -114,8 +114,8 @@ self-hosted fleet. It builds signed and notarized macOS DMGs for Apple Silicon
 and Intel, a signed Windows installer, and Linux AppImage and Debian packages.
 
 Release files share RBXport's R2 bucket under the isolated
-`onelibrary-4all-<version>-<platform>` namespace. The current download manifest
-is `onelibrary-4all-latest.json`; RBXport's own `latest.json` is never changed.
+`onelibrary-sync-<version>-<platform>` namespace. The current download manifest
+is `onelibrary-sync-latest.json`; RBXport's own `latest.json` is never changed.
 A manual workflow run without a tag builds preview artifacts without publishing.
 
 ## License

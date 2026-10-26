@@ -109,7 +109,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          "CARGO_TARGET_DIR=C:/onelibrary-4all-target" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+          "CARGO_TARGET_DIR=C:/onelibrary-sync-target" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -215,7 +215,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           set -euo pipefail
-          KEYCHAIN="$RUNNER_TEMP/onelibrary-4all-signing.keychain-db"
+          KEYCHAIN="$RUNNER_TEMP/onelibrary-sync-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(uuidgen)"
           echo "::add-mask::$KEYCHAIN_PASSWORD"
           security delete-keychain "$KEYCHAIN" 2>/dev/null || true
@@ -275,7 +275,7 @@ jobs:
         run: |
           set -euo pipefail
           binary="$(find "${CARGO_TARGET_DIR:-target}/${{ inputs.target }}/release/bundle/macos" \
-            -type f -path '*/Contents/MacOS/onelibrary-4all' -print -quit)"
+            -type f -path '*/Contents/MacOS/onelibrary-sync' -print -quit)"
           [ -n "$binary" ] || { echo "::error::app binary not found"; exit 1; }
           actual="$(lipo -archs "$binary")"
           [ "$actual" = "$EXPECTED_ARCH" ] || { echo "::error::expected $EXPECTED_ARCH, got $actual"; exit 1; }
@@ -294,10 +294,10 @@ jobs:
           [ "$count" -gt 0 ] || { echo "::error::no installer was produced"; exit 1; }
           for f in out/*; do
             case "$f" in
-              *.dmg)       want="out/onelibrary-4all-${RELEASE_VERSION}-${{ inputs.slug }}.dmg" ;;
-              *-setup.exe) want="out/onelibrary-4all-${RELEASE_VERSION}-${{ inputs.slug }}-setup.exe" ;;
-              *.AppImage)  want="out/onelibrary-4all-${RELEASE_VERSION}-${{ inputs.slug }}.AppImage" ;;
-              *.deb)       want="out/onelibrary-4all-${RELEASE_VERSION}-${{ inputs.slug }}.deb" ;;
+              *.dmg)       want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.dmg" ;;
+              *-setup.exe) want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}-setup.exe" ;;
+              *.AppImage)  want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.AppImage" ;;
+              *.deb)       want="out/onelibrary-sync-${RELEASE_VERSION}-${{ inputs.slug }}.deb" ;;
               *) echo "::error::unexpected bundle $f"; exit 1 ;;
             esac
             [ "$f" = "$want" ] || mv "$f" "$want"
@@ -370,7 +370,7 @@ jobs:
         if: always() && runner.os == 'macOS'
         shell: bash
         run: |
-          KEYCHAIN="$RUNNER_TEMP/onelibrary-4all-signing.keychain-db"
+          KEYCHAIN="$RUNNER_TEMP/onelibrary-sync-signing.keychain-db"
           # Remove only this job's entry; restoring a snapshot would also drop
           # keychains other jobs added since.
           others="$(security list-keychains -d user | sed 's/^ *"//;s/"$//' | grep -vxF "$KEYCHAIN" || true)"

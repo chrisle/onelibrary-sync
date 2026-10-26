@@ -1,10 +1,10 @@
 name: Release
 
-# A v* tag builds and signs OneLibrary 4 All for Apple Silicon and Intel Macs,
+# A v* tag builds and signs OneLibrary Sync for Apple Silicon and Intel Macs,
 # Windows x64, and Linux x64 on the same arc fleet as RBXport. Artifacts share
 # RBXport's R2 bucket but use an isolated namespace:
-#   onelibrary-4all-<version>-<platform>.<ext>
-#   onelibrary-4all-latest.json
+#   onelibrary-sync-<version>-<platform>.<ext>
+#   onelibrary-sync-latest.json
 # A manual dispatch with no tag is a build-only preview and does not publish.
 #
 # Required repository secrets:
@@ -259,15 +259,15 @@ jobs:
               if (!file) throw new Error(`missing ${platform} installer`);
               downloads[platform] = { file, url: `${base}/${file}` };
             }
-            fs.writeFileSync("onelibrary-4all-latest.json", JSON.stringify({
+            fs.writeFileSync("onelibrary-sync-latest.json", JSON.stringify({
               version,
               pub_date: new Date().toISOString(),
               downloads,
             }, null, 2) + "\n");
           ' "$VERSION" "${CDN_BASE_URL%/}"
 
-          aws s3 cp onelibrary-4all-latest.json \
-            "s3://$BUCKET/onelibrary-4all-latest.json" \
+          aws s3 cp onelibrary-sync-latest.json \
+            "s3://$BUCKET/onelibrary-sync-latest.json" \
             --endpoint-url "$ENDPOINT" --no-progress \
             --content-type application/json --cache-control "public, max-age=60"
 
@@ -278,14 +278,14 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
-            "${CDN_BASE_URL%/}/onelibrary-4all-latest.json" -o published.json
+            "${CDN_BASE_URL%/}/onelibrary-sync-latest.json" -o published.json
           test "$(node -p 'require("./published.json").version')" = "$VERSION"
           node -p 'Object.values(require("./published.json").downloads).map((item) => item.url).join("\n")' \
             | while read -r url; do
                 curl -fsI --retry 5 --retry-all-errors --retry-delay 5 "$url" >/dev/null
               done
 
-      - name: Keep only the five newest OneLibrary 4 All versions
+      - name: Keep only the five newest OneLibrary Sync versions
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -297,12 +297,12 @@ jobs:
         run: |
           set -euo pipefail
           aws s3api list-objects-v2 --bucket "$BUCKET" --endpoint-url "$ENDPOINT" \
-            --query 'Contents[].Key' --output json > /tmp/onelibrary-4all-keys.json
+            --query 'Contents[].Key' --output json > /tmp/onelibrary-sync-keys.json
           # shellcheck disable=SC2016
           node -e '
             const fs = require("fs");
-            const keys = JSON.parse(fs.readFileSync("/tmp/onelibrary-4all-keys.json", "utf8")) || [];
-            const pattern = /^onelibrary-4all-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-/;
+            const keys = JSON.parse(fs.readFileSync("/tmp/onelibrary-sync-keys.json", "utf8")) || [];
+            const pattern = /^onelibrary-sync-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-/;
             const versions = [...new Set(keys.map((key) => pattern.exec(key)?.[1]).filter(Boolean))];
             const parse = (value) => {
               const [core, pre = ""] = value.split("-", 2);
@@ -320,12 +320,12 @@ jobs:
               const match = pattern.exec(key);
               return match && !keep.has(match[1]);
             });
-            fs.writeFileSync("/tmp/onelibrary-4all-delete.json", JSON.stringify({
+            fs.writeFileSync("/tmp/onelibrary-sync-delete.json", JSON.stringify({
               Objects: drop.map((Key) => ({ Key })), Quiet: true,
             }));
             console.log(`keeping ${[...keep].join(", ") || "nothing"}; deleting ${drop.length} objects`);
           '
-          if [ "$(node -p 'require("/tmp/onelibrary-4all-delete.json").Objects.length')" -gt 0 ]; then
+          if [ "$(node -p 'require("/tmp/onelibrary-sync-delete.json").Objects.length')" -gt 0 ]; then
             aws s3api delete-objects --bucket "$BUCKET" --endpoint-url "$ENDPOINT" \
-              --delete file:///tmp/onelibrary-4all-delete.json
+              --delete file:///tmp/onelibrary-sync-delete.json
           fi

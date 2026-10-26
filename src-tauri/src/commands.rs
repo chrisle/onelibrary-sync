@@ -9,10 +9,10 @@ use tauri_plugin_opener::OpenerExt as _;
 async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Outcome<T> + Send + 'static) -> Outcome<T> {
     tauri::async_runtime::spawn_blocking(move || {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(work))
-            .unwrap_or_else(|_| Err(Failure::new("Something went wrong inside OneLibrary 4 All.")))
+            .unwrap_or_else(|_| Err(Failure::new("Something went wrong inside OneLibrary Sync.")))
     })
     .await
-    .unwrap_or_else(|_| Err(Failure::new("Something went wrong inside OneLibrary 4 All.")))
+    .unwrap_or_else(|_| Err(Failure::new("Something went wrong inside OneLibrary Sync.")))
 }
 
 #[tauri::command]
