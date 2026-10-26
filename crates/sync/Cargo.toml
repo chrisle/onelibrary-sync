@@ -1,0 +1,23 @@
+[package]
+name = "onelibrary-sync"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Brings a USB stick's Device Library (export.pdb) in line with its OneLibrary (exportLibrary.db)."
+
+[lints]
+workspace = true
+
+[dependencies]
+rbl-core = { path = "../rbl-core" }
+rbl-onelibrary = { path = "../rbl-onelibrary" }
+rbl-pdb = { path = "../rbl-pdb" }
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
