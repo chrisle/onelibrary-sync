@@ -54,7 +54,19 @@
     },
     "windows": {
       "nsis": {
-        "installMode": "perMachine"
+        "installMode": "currentUser"
+      }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY3MTFEN0NCNTEyQzY4NzEKUldSeGFDeFJ5OWNSOTJTWjVsR0lzSkh0ZEFJSGZBeG9IT0c0cHZJK2tWS1JjK1lrUGkrR3pFelcK",
+      "endpoints": [
+        "https://download.rbxport.com/onelibrary-sync-latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
       }
     }
   }

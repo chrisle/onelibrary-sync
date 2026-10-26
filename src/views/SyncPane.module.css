@@ -69,7 +69,10 @@
 .sizeFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; color: var(--c-text-dim); font-size: var(--f-size-sm); line-height: 1.5; }
 
 .directoryLink { padding: 0; border: 0; background: none; color: var(--c-accent); font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; cursor: pointer; }
-.directoryLink:hover { color: var(--c-label-aqua); }
+.directoryLink:hover:not(:disabled) { color: var(--c-label-aqua); }
+.directoryLink:disabled { color: var(--c-text-dim); text-decoration: none; }
+.updateFailed { color: var(--c-error); }
+.updateFailed .directoryLink { margin-left: 4px; }
 
 .destination { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 16px; border: 1px solid var(--c-raised); border-radius: 4px; }
 .destination > div { flex: 1; min-width: 200px; }

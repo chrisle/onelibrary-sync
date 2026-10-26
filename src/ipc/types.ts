@@ -114,6 +114,28 @@ export interface SyncProgress {
   report: Report | null;
 }
 
+/** What an update check found. */
+export interface UpdateCheck {
+  currentVersion: string;
+  /** The version on offer, or null when this build is the newest. */
+  version: string | null;
+  /** The version on offer is already downloaded this run. */
+  ready: UpdateReady | null;
+}
+
+/** A downloaded update. */
+export interface UpdateReady {
+  version: string;
+  /** The next launch runs it as things stand; false when an installer still has to run, at the quit or on Restart now. */
+  installed: boolean;
+}
+
+export interface UpdateProgress {
+  downloaded: number;
+  /** null when the server did not say how big the file is. */
+  total: number | null;
+}
+
 export interface Backend {
   status(): Promise<Status>;
   listDevices(): Promise<Device[]>;
@@ -128,4 +150,11 @@ export interface Backend {
   openDevice(path: string): Promise<void>;
   /** Calls back when a volume is connected or disconnected; resolves to an unsubscribe. */
   onDevicesChanged(callback: () => void): Promise<() => void>;
+  checkForUpdate(): Promise<UpdateCheck>;
+  /** Downloads what the last check found and puts it in place, or stages it where the app must quit first. */
+  downloadUpdate(): Promise<UpdateReady>;
+  /** Restarts into the downloaded update. A success never returns. */
+  restartToUpdate(): Promise<void>;
+  /** Calls back as a download goes; resolves to an unsubscribe. */
+  onUpdateProgress(callback: (progress: UpdateProgress) => void): Promise<() => void>;
 }

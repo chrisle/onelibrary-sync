@@ -5,6 +5,7 @@
 mod commands;
 mod processes;
 mod state;
+mod update;
 
 use std::sync::Arc;
 use tauri::{Emitter as _, Manager as _};
@@ -16,10 +17,13 @@ pub fn run() {
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
-    let result = tauri::Builder::default()
+    let built = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.manage(Arc::new(state::AppState::default()));
+            app.manage(Arc::new(update::Updates::default()));
+            update::Updates::clear_stale(app.handle());
             // A stick plugged in or pulled out refreshes the list at once,
             // whether or not the window has focus.
             let handle = app.handle().clone();
@@ -41,9 +45,18 @@ pub fn run() {
             commands::recover_device,
             commands::eject_device,
             commands::open_device,
+            update::check_for_update,
+            update::download_update,
+            update::restart_to_update,
         ])
-        .run(tauri::generate_context!());
-    if let Err(error) = result {
-        tracing::error!(%error, "OneLibrary Sync could not start");
+        .build(tauri::generate_context!());
+    match built {
+        // An update staged on Windows installs as the app quits.
+        Ok(app) => app.run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                update::on_exit(app);
+            }
+        }),
+        Err(error) => tracing::error!(%error, "OneLibrary Sync could not start"),
     }
 }

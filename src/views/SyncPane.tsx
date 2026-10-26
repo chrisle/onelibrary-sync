@@ -9,8 +9,10 @@ import { anyChange } from "@/lib/changes";
 import { useDevices, type PlanState } from "@/store/useDevices";
 import { useStatus } from "@/store/useStatus";
 import { useSyncJobs } from "@/store/useSyncJobs";
+import { useUpdater } from "@/store/useUpdater";
 import { DeviceDetails } from "./DeviceDetails";
 import { SyncStep } from "./SyncStep";
+import { UpdateStatus } from "./UpdateStatus";
 import styles from "./SyncPane.module.css";
 
 /** Why a USB's sync cannot start now, or "". `syncing` is whether that USB is syncing already. */
@@ -68,6 +70,7 @@ function EjectIcon() {
 export function SyncPane() {
   const { status } = useStatus();
   const { devices, plans, loading, error: listError, reload, recheck } = useDevices();
+  const updater = useUpdater();
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -155,7 +158,9 @@ export function SyncPane() {
   const blocked = blockedReason(status, false);
   const unavailable = busy !== "";
   const toSync = devices.filter(device => chosen.has(device.path) && syncable(device));
-  return <Section title="OneLibrary Sync" subtitle={`Version ${__APP_VERSION__}`}>
+  return <Section title="OneLibrary Sync" subtitle={<>
+    Version {__APP_VERSION__} · <UpdateStatus updater={updater} syncing={syncingNames.length > 0} />
+  </>}>
     {status?.rekordboxRunning ? <p className={styles.blockedNotice}>Quit rekordbox before syncing. It writes to the USBs it sees.</p> : null}
     {error || listError ? <p role="alert" className={styles.error}>{error || listError}</p> : null}
 

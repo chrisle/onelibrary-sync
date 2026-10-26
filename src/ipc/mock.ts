@@ -3,10 +3,11 @@
  * tested without a USB. Query flags set the situation:
  * `?rekordbox=1` has rekordbox running, `?interrupted=1` leaves an
  * interrupted write on the first USB, `?fail=1` fails syncs, `?empty=1`
- * connects nothing, and `?late=1` connects another USB a few seconds after
- * the window opens.
+ * connects nothing, `?late=1` connects another USB a few seconds after
+ * the window opens, `?update=1` offers version 9.9.9, and `?updatefail=1`
+ * cannot reach the download server.
  */
-import type { Backend, Changes, Counts, Device, Plan, Stamp, Status, SyncProgress } from "./types";
+import type { Backend, Changes, Counts, Device, Plan, Stamp, Status, SyncProgress, UpdateProgress } from "./types";
 
 const GB = 1024 ** 3;
 
@@ -94,6 +95,8 @@ export function createMockBackend(): Backend {
   }
 
   const jobs = new Map<string, SyncProgress>();
+  const updateListeners = new Set<(progress: UpdateProgress) => void>();
+  const UPDATE_BYTES = 12_000_000;
   const refuse = (message: string) => Promise.reject(new Error(message));
   const find = (path: string) => sticks.get(path);
 
@@ -164,6 +167,24 @@ export function createMockBackend(): Backend {
     onDevicesChanged: (callback) => {
       listeners.add(callback);
       return Promise.resolve(() => listeners.delete(callback));
+    },
+    checkForUpdate: () => flag("updatefail")
+      ? wait(null, 400).then(() => refuse("The update check could not reach the download server."))
+      : wait({ currentVersion: "0.1.0", version: flag("update") ? "9.9.9" : null, ready: null }, 400),
+    downloadUpdate: () => new Promise((resolve) => {
+      let downloaded = 0;
+      const tick = () => {
+        downloaded = Math.min(UPDATE_BYTES, downloaded + UPDATE_BYTES / 8);
+        updateListeners.forEach((listener) => listener({ downloaded, total: UPDATE_BYTES }));
+        if (downloaded < UPDATE_BYTES) setTimeout(tick, 250);
+        else setTimeout(() => resolve({ version: "9.9.9", installed: true }), 300);
+      };
+      tick();
+    }),
+    restartToUpdate: () => refuse("The browser cannot restart into an update."),
+    onUpdateProgress: (callback) => {
+      updateListeners.add(callback);
+      return Promise.resolve(() => updateListeners.delete(callback));
     },
   };
 }

@@ -26,6 +26,11 @@ licensed GPL-2.0-or-later.
   it finishes. One whose sync failed stays connected.
 - The eject icon in a USB's row hands it back to the system so it can be
   unplugged.
+- Updates install themselves, as RBXport's do. A few seconds after launch the
+  app checks for a newer version and downloads it. On macOS and with the
+  AppImage it is put in place at once and the next launch runs it; on Windows
+  it installs when the app quits. **Restart now**, beside the version, runs it
+  straight away once no USB is syncing. **Check for updates** checks by hand.
 
 Only the USB is read and written. The rekordbox library on the computer is
 never opened.
@@ -117,6 +122,14 @@ Release files share RBXport's R2 bucket under the isolated
 `onelibrary-sync-<version>-<platform>` namespace. The current download manifest
 is `onelibrary-sync-latest.json`; RBXport's own `latest.json` is never changed.
 A manual workflow run without a tag builds preview artifacts without publishing.
+
+The manifest is also the update feed installed copies read. Each platform's
+update bundle is signed with the OneLibrary Sync updater key (1Password, Code
+vault), whose public half is `plugins.updater.pubkey` in
+`src-tauri/tauri.conf.json`; the workflow needs its private key and password as
+the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+secrets. The Windows installer installs for the current user, so an update
+installs without an administrator prompt.
 
 ## License
 

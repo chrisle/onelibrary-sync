@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Backend, Device, Fingerprint, Plan, Status, SyncProgress } from "./types";
+import type { Backend, Device, Fingerprint, Plan, Status, SyncProgress, UpdateCheck, UpdateProgress, UpdateReady } from "./types";
 
 function tauriBackend(): Backend {
   return {
@@ -14,6 +14,13 @@ function tauriBackend(): Backend {
     onDevicesChanged: async (callback) => {
       const { listen } = await import("@tauri-apps/api/event");
       return listen("devices-changed", () => callback());
+    },
+    checkForUpdate: () => invoke<UpdateCheck>("check_for_update"),
+    downloadUpdate: () => invoke<UpdateReady>("download_update"),
+    restartToUpdate: () => invoke<void>("restart_to_update"),
+    onUpdateProgress: async (callback) => {
+      const { listen } = await import("@tauri-apps/api/event");
+      return listen<UpdateProgress>("update:progress", (event) => callback(event.payload));
     },
   };
 }
