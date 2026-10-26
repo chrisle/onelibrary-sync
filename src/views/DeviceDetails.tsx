@@ -3,7 +3,7 @@ import { LoaderCircle } from "lucide-react";
 import type { Device, Plan } from "@/ipc/types";
 import type { PlanState } from "@/store/useDevices";
 import { Button } from "@/components/controls";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatFileSystem } from "@/lib/format";
 import { anyChange, comparisonRows, syncNotes, type ComparisonRow } from "@/lib/changes";
 import styles from "./SyncPane.module.css";
 
@@ -58,7 +58,7 @@ export function DeviceDetails({ device, plan, blocked, focus, onSync, onRecover,
   const header = <div className={styles.detailsHeader}>
     <div className={styles.volume}>
       <strong>{device.name}</strong>
-      {device.fileSystem ? <span className={styles.fileSystem}>{device.fileSystem.toUpperCase()}</span> : null}
+      {device.fileSystem ? <span className={styles.fileSystem}>{formatFileSystem(device.fileSystem)}</span> : null}
     </div>
     {device.totalBytes > 0 ? <div className={styles.space}>
       <div className={styles.capacityBar} role="meter" aria-label="Space used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(used * 100)}>

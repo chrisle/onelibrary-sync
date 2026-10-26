@@ -16,3 +16,8 @@ export function formatSize(bytes: number): string {
 export function formatCount(count: number): string {
   return count.toLocaleString();
 }
+
+/** A file system's name as people see it on a USB: always in capitals ("HFS", "EXFAT"). */
+export function formatFileSystem(name: string): string {
+  return name.toUpperCase();
+}

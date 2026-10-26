@@ -4,7 +4,7 @@ import { getBackend } from "@/ipc/client";
 import type { Backend, Device, Status, SyncProgress } from "@/ipc/types";
 import { Button, Section } from "@/components/controls";
 import { errorMessage } from "@/lib/errorMessage";
-import { formatBytes, formatCount } from "@/lib/format";
+import { formatBytes, formatCount, formatFileSystem } from "@/lib/format";
 import { anyChange, summarize } from "@/lib/changes";
 import { useDevices, type PlanState } from "@/store/useDevices";
 import { useStatus } from "@/store/useStatus";
@@ -134,7 +134,7 @@ export function SyncPane() {
                 <ChevronRight size={16} aria-hidden="true" />
               </button>
             </td>
-            <td><div className={styles.deviceName}><span>{device.name}</span><small>{device.fileSystem}</small></div></td>
+            <td><div className={styles.deviceName}><span>{device.name}</span><small>{formatFileSystem(device.fileSystem)}</small></div></td>
             <td>{device.totalBytes > 0 ? <div className={styles.capacity} title={`${formatBytes(device.freeBytes)} free of ${formatBytes(device.totalBytes)}`}>
               <span>{formatBytes(device.freeBytes)} free</span>
               <div className={styles.capacityBar}><span style={{ width: `${Math.round(used * 100)}%` }} /></div>
