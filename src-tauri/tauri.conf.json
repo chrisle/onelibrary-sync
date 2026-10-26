@@ -14,10 +14,10 @@
     "windows": [
       {
         "title": "OneLibrary 4 All",
-        "width": 1040,
-        "height": 900,
-        "minWidth": 760,
-        "minHeight": 600,
+        "width": 720,
+        "height": 480,
+        "minWidth": 640,
+        "minHeight": 420,
         "resizable": true,
         "center": true,
         "titleBarStyle": "Overlay",
