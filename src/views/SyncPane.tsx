@@ -93,21 +93,12 @@ export function SyncPane() {
 
   const blocked = blockedReason(status, job.progress.running);
   const unavailable = busy !== "" || job.progress.running;
-  return <Section title="Sync USB Libraries">
+  return <Section title="OneLibrary 4 All">
     {status?.rekordboxRunning ? <p className={styles.blockedNotice}>Quit rekordbox before syncing. It writes to the USBs it sees.</p> : null}
     {error || listError ? <p role="alert" className={styles.error}>{error || listError}</p> : null}
 
     {job.progress.running ? <SyncProgressCard progress={job.progress} name={nameIn(names.current, job.progress.path)} />
-      : <section className={styles.summary} aria-label="Sync your USBs">
-        <div>
-          <strong>Sync the Device Library from the OneLibrary</strong>
-          <p className={styles.help}>
-            Players that read only the Device Library, such as the CDJ-2000NXS2 and XDJ-1000MK2, see what a USB’s OneLibrary holds once it is synced.
-            The OneLibrary is only read. Only the Device Library tables that differ are written; the audio, analysis and artwork files are already on the USB.
-          </p>
-          <p className={styles.status} role="status" aria-live="polite" data-done={message ? true : undefined}>{busy || message}</p>
-        </div>
-      </section>}
+      : <p className={styles.status} role="status" aria-live="polite" data-done={message ? true : undefined}>{busy || message}</p>}
 
     <div className={styles.listHeading}>
       <h4 className={styles.sectionHeading}>Connected USBs</h4>
